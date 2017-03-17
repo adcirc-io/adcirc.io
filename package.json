@@ -1,0 +1,17 @@
+{
+  "name": "adcirc.io",
+  "version": "0.0.1",
+  "license": "BSD-3-Clause",
+  "homepage": "https://github.com/adcirc-io/adcirc.io",
+  "author": {
+    "name": "Tristan Dyer",
+    "url": "https://github.com/atdyer"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adcirc-io/adcirc.io.git"
+  },
+  "scripts": {
+    "sass": "sass --watch css/index.scss:css/index.css"
+  }
+}
