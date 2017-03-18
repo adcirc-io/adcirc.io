@@ -1,0 +1,26 @@
+@import "colors";
+
+.button {
+  cursor: pointer;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+
+  &.active {
+
+    background-color: $color-active-background;
+    color: $color-active;
+
+  }
+
+  &.inactive {
+
+    cursor: auto;
+    background-color: $color-inactive-background;
+    color: $color-inactive;
+    pointer-events: none;
+
+  }
+
+}

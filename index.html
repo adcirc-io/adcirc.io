@@ -6,21 +6,45 @@
 
     <script src="lib/d3.v4.min.js"></script>
     <script src="lib/adcirc-lib.min.js"></script>
+    <script src="https://use.fontawesome.com/6928117062.js"></script>
 
     <link href="css/index.css" rel="stylesheet">
 
 
 </head>
 <body>
+
     <div class="dashboard">
+
         <div class="header">
             <div class="left">
                 <div class="title">ADCIRC.io</div>
             </div>
             <div class="right">
-                <div class="title">Neat!</div>
+                <div class="title button"><i class="fa fa-fw fa-question-circle" aria-hidden="true"></i></div>
             </div>
         </div>
+
+        <div class="main">
+
+            <div class="sidebar-small">
+                <div class="square-button active"><i class="fa fa-fw fa-database" aria-hidden="true"></i></div>
+                <div class="square-button inactive"><i class="fa fa-fw fa-bar-chart" aria-hidden="true"></i></div>
+                <div class="square-button inactive"><i class="fa fa-fw fa-terminal" aria-hidden="true"></i></div>
+                <div class="square-button"><i class="fa fa-fw fa-cog" aria-hidden="true"></i></div>
+            </div>
+
+            <div class="sidebar-big">
+
+            </div>
+
+            <canvas id="canvas"></canvas>
+
+        </div>
+
     </div>
+
+    <script src="js/index.js"></script>
+
 </body>
 </html>

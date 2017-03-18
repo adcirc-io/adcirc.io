@@ -1,25 +1,45 @@
 @import "fonts";
 @import "colors";
+@import "borders";
+@import "button";
 
-body {
-  font: 100% $font-sans;
+html, body {
+
   margin: 0;
-}
-
-.dashboard {
   width: 100%;
   height: 100%;
   overflow: hidden;
+
+  font: 100% $font-sans;
+
+}
+
+canvas {
+
+  width: 100%;
+  height: 100%;
+
+}
+
+.dashboard {
+
+  width: 100%;
+  height: 100%;
+
   display: flex;
   flex-direction: column;
 
   .header {
 
-    min-height: 20px;
-    background-color: $color-light;
-    border-bottom: 1px solid $color-light-border;
+    @extend .bordered-bottom;
+
+    flex: 1 0 auto;
+
     display: flex;
     align-items: baseline;
+    min-height: 20px;
+
+    background-color: $color-light;
 
     > .left {
 
@@ -52,6 +72,65 @@ body {
       font-size: 14px;
 
     }
+
+  }
+
+  .main {
+
+    height: 100%;
+
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+
+  }
+
+  .sidebar {
+
+    @extend .bordered-right;
+
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+
+  }
+
+  .sidebar-small {
+
+    @extend .sidebar;
+    min-width: 40px;
+    background-color: #e7e7e7;
+
+    .square-button {
+      @extend .button;
+      @extend .bordered-bottom;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      color: $color-dark;
+
+      > .fa {
+        line-height: 1em;
+        vertical-align: middle;
+      }
+
+      &:hover {
+        background-color: $color-light;
+        color: $color-primary;
+      }
+
+    }
+
+  }
+
+  .sidebar-big {
+
+    @extend .sidebar;
+    min-width: 245px;
+    background-color: #f8f8f8;
 
   }
 

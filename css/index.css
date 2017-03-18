@@ -1,21 +1,48 @@
 @import url("https://fonts.googleapis.com/css?family=Noto+Sans:400,400i,700");
 @import url("https://fonts.googleapis.com/css?family=PT+Sans:400,400i,700|PT+Serif:400,400i,700");
-body {
-  font: 100% "Noto Sans", sans-serif;
-  margin: 0; }
+.bordered-bottom, .dashboard .header, .dashboard .sidebar-small .square-button {
+  border-bottom: 1px solid #c3c5c6; }
+
+.bordered-right, .dashboard .sidebar, .dashboard .sidebar-small, .dashboard .sidebar-big {
+  border-right: 1px solid #c3c5c6; }
+
+.button, .dashboard .sidebar-small .square-button {
+  cursor: pointer;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none; }
+  .button.active, .dashboard .sidebar-small .active.square-button {
+    background-color: steelblue;
+    color: white; }
+  .button.inactive, .dashboard .sidebar-small .inactive.square-button {
+    cursor: auto;
+    background-color: white;
+    color: lightgrey;
+    pointer-events: none; }
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font: 100% "Noto Sans", sans-serif; }
+
+canvas {
+  width: 100%;
+  height: 100%; }
 
 .dashboard {
   width: 100%;
   height: 100%;
-  overflow: hidden;
   display: flex;
   flex-direction: column; }
   .dashboard .header {
-    min-height: 20px;
-    background-color: #f8f8f8;
-    border-bottom: 1px solid #e7e7e7;
+    flex: 1 0 auto;
     display: flex;
-    align-items: baseline; }
+    align-items: baseline;
+    min-height: 20px;
+    background-color: #f8f8f8; }
     .dashboard .header > .left {
       display: flex;
       align-items: baseline;
@@ -32,5 +59,33 @@ body {
         color: steelblue; }
     .dashboard .header .links {
       font-size: 14px; }
+  .dashboard .main {
+    height: 100%;
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch; }
+  .dashboard .sidebar, .dashboard .sidebar-small, .dashboard .sidebar-big {
+    height: 100%;
+    display: flex;
+    flex-direction: column; }
+  .dashboard .sidebar-small {
+    min-width: 40px;
+    background-color: #e7e7e7; }
+    .dashboard .sidebar-small .square-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      color: #777777; }
+      .dashboard .sidebar-small .square-button > .fa {
+        line-height: 1em;
+        vertical-align: middle; }
+      .dashboard .sidebar-small .square-button:hover {
+        background-color: #f8f8f8;
+        color: steelblue; }
+  .dashboard .sidebar-big {
+    min-width: 245px;
+    background-color: #f8f8f8; }
 
 /*# sourceMappingURL=index.css.map */
