@@ -5,7 +5,8 @@
     <title>ADCIRC.io</title>
 
     <script src="lib/d3.v4.min.js"></script>
-    <script src="lib/adcirc-lib.min.js"></script>
+    <script src="../../adcirc-lib/build/adcirc-lib.js"></script>
+    <!--<script src="lib/adcirc-lib.min.js"></script>-->
     <script src="https://use.fontawesome.com/6928117062.js"></script>
 
     <link href="css/index.css" rel="stylesheet">
@@ -28,14 +29,14 @@
         <div class="main">
 
             <div class="sidebar-small">
-                <div class="square-button active"><i class="fa fa-fw fa-database" aria-hidden="true"></i></div>
-                <div class="square-button inactive"><i class="fa fa-fw fa-bar-chart" aria-hidden="true"></i></div>
-                <div class="square-button inactive"><i class="fa fa-fw fa-terminal" aria-hidden="true"></i></div>
-                <div class="square-button inactive"><i class="fa fa-fw fa-cog" aria-hidden="true"></i></div>
+                <div id="data_tab" class="adc-button square-button active"><i class="fa fa-fw fa-database" aria-hidden="true"></i></div>
+                <div id="chart_tab" class="adc-button square-button inactive"><i class="fa fa-fw fa-bar-chart" aria-hidden="true"></i></div>
+                <div id="terminal_tab" class="adc-button square-button inactive"><i class="fa fa-fw fa-terminal" aria-hidden="true"></i></div>
+                <div id="settings_tab" class="adc-button square-button inactive"><i class="fa fa-fw fa-cog" aria-hidden="true"></i></div>
             </div>
 
             <div class="sidebar-big">
-
+                <div id="fort14" class="adc-button button">Open fort.14</div>
             </div>
 
             <canvas id="canvas"></canvas>
