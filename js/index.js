@@ -3,7 +3,27 @@ var renderer = adcirc.gl_renderer( canvas )
     .clear_color( d3.color( 'darkgray' ) );
 
 var ui = adcirc.ui( d3.select( 'body' ) );
+var nodal_values = d3.select( '#nodal_values' );
+var elemental_values = d3.select( '#elemental_values' );
 var mesh = adcirc.mesh();
+
+mesh.on( 'nodal_value', function ( event ) {
+
+    console.log( event );
+
+    nodal_values.append( 'option' )
+        .attr( 'value', event.name )
+        .text( event.name );
+
+} );
+
+mesh.on( 'elemental_value', function ( event ) {
+
+    elemental_values.append( 'option' )
+        .attr( 'value', event.name )
+        .text( event.name );
+
+} );
 
 ui.fort14.file_picker( function ( file ) {
 
@@ -15,6 +35,22 @@ ui.fort14.file_picker( function ( file ) {
             mesh.elements( event.elements );
         })
         .on( 'ready', display_mesh )
+        .read( file );
+
+});
+
+ui.residuals.file_picker( function ( file ) {
+
+    var residuals = adcirc.fort63()
+        .on( 'ready', function () {
+
+            residuals.timestep( 0, function ( event ) {
+
+                console.log( event.timestep.data() );
+                mesh.elemental_value( 'residuals', event.timestep.data() );
+
+            });
+        })
         .read( file );
 
 });
