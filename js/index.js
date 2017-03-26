@@ -9,8 +9,6 @@ var mesh = adcirc.mesh();
 
 mesh.on( 'nodal_value', function ( event ) {
 
-    console.log( event );
-
     nodal_values.append( 'option' )
         .attr( 'value', event.name )
         .text( event.name );
@@ -46,7 +44,6 @@ ui.residuals.file_picker( function ( file ) {
 
             residuals.timestep( 0, function ( event ) {
 
-                console.log( event.timestep.data() );
                 mesh.elemental_value( 'residuals', event.timestep.data() );
 
             });
@@ -70,6 +67,16 @@ function display_mesh () {
         .gradient_shader( renderer.gl_context(), 4, depth_range[1], depth_range[0] );
 
     var view = adcirc.view( renderer.gl_context(), geometry, shader );
+
+    mesh.on( 'elemental_value', function( event ) {
+
+        var bounds = mesh.bounds( event.name );
+        shader = adcirc
+            .gradient_shader( renderer.gl_context(), 4, bounds[0], bounds[1] );
+        view.elemental_value( event.name )
+            .shader( shader );
+
+    });
 
     view.nodal_value( 'depth' );
 
