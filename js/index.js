@@ -1,87 +1,74 @@
+import { dataset } from './models/dataset'
+import { mesh_view } from './views/mesh_view'
+
+// Build the UI
 var canvas = d3.select( '#canvas' );
-var renderer = adcirc.gl_renderer( canvas )
+var renderer = adcirc
+    .gl_renderer( canvas )
     .clear_color( d3.color( 'darkgray' ) );
-
-var ui = adcirc.ui( d3.select( 'body' ) );
-var nodal_values = d3.select( '#nodal_values' );
+var ui = adcirc
+    .ui( d3.select( 'body' ) );
 var elemental_values = d3.select( '#elemental_values' );
-var mesh = adcirc.mesh();
+var nodal_values = d3.select( '#nodal_values' );
+var num_nodes = d3.select( '#num-nodes' );
+var num_elements = d3.select( '#num-elements' );
+var bounding_box = d3.select( '#bounding-box' );
 
-mesh.on( 'nodal_value', function ( event ) {
+// Set up data views
+var initialized = false;
+var view_mesh = mesh_view()
+    .elemental_values( elemental_values )
+    .nodal_values( nodal_values )
+    .num_nodes( num_nodes )
+    .num_elements( num_elements )
+    .bounding_box( bounding_box );
 
-    nodal_values.append( 'option' )
-        .attr( 'value', event.name )
-        .text( event.name );
+// There'll only be a single dataset to begin with
+var data = dataset( renderer.gl_context() );
+var mesh = data.mesh();
 
-} );
+// Set up file pickers
+ui.fort14.file_picker( data.load_fort_14 );
+ui.fort63.file_picker( data.load_fort_63 );
+ui.residuals.file_picker( data.load_residuals );
 
-mesh.on( 'elemental_value', function ( event ) {
+// Connect the views to the data
+view_mesh( data.mesh() );
 
-    elemental_values.append( 'option' )
-        .attr( 'value', event.name )
-        .text( event.name );
+// Respond to events from the mesh
+mesh.on( 'bounding_box', function () {
 
-} );
+    if ( !initialized ) {
 
-ui.fort14.file_picker( function ( file ) {
+        renderer.zoom_to( mesh, 200 );
+        initialized = true;
 
-    var f14 = adcirc.fort14()
-        .on( 'nodes', function( event ) {
-            mesh.nodes( event.nodes );
-        })
-        .on( 'elements', function ( event ) {
-            mesh.elements( event.elements );
-        })
-        .on( 'ready', display_mesh )
-        .read( file );
-
-});
-
-ui.residuals.file_picker( function ( file ) {
-
-    var residuals = adcirc.fort63()
-        .on( 'ready', function () {
-
-            residuals.timestep( 0, function ( event ) {
-
-                mesh.elemental_value( 'residuals', event.timestep.data() );
-
-            });
-        })
-        .read( file );
-
-});
-
-function display_mesh () {
-
-    if ( !mesh.num_nodes() || !mesh.num_elements() ) {
-        return;
     }
 
-    var depth_range = mesh.bounds( 'depth' );
+});
 
-    var geometry = adcirc
-        .geometry( renderer.gl_context(), mesh );
+// Respond to events from the dataset
+data.on( 'has_view', function ( event ) {
 
-    var shader = adcirc
-        .gradient_shader( renderer.gl_context(), 4, depth_range[1], depth_range[0] );
+    renderer.add_view( event.view );
 
-    var view = adcirc.view( renderer.gl_context(), geometry, shader );
+});
 
-    mesh.on( 'elemental_value', function( event ) {
+data.on( 'progress', function ( event ) {
 
-        var bounds = mesh.bounds( event.name );
-        shader = adcirc
-            .gradient_shader( renderer.gl_context(), 4, bounds[0], bounds[1] );
-        view.elemental_value( event.name )
-            .shader( shader );
+    ui.progress.progress( event.progress );
 
-    });
+});
 
-    view.nodal_value( 'depth' );
+// Respond to events from views
+view_mesh.on( 'nodal_value', function ( event ) {
 
-    renderer
-        .add_view( view )
-        .zoom_to( mesh, 500 );
+    data.view( event.nodal_value );
 
-}
+});
+
+view_mesh.on( 'elemental_value', function ( event ) {
+
+    data.view( event.elemental_value );
+
+});

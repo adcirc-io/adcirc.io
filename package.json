@@ -12,6 +12,12 @@
     "url": "https://github.com/adcirc-io/adcirc.io.git"
   },
   "scripts": {
+    "dev": "rollup -w --banner \"$(preamble)\" -f umd -o build/index.js -- js/index.js",
     "sass": "sass --watch css/index.scss:css/index.css"
+  },
+  "devDependencies": {
+    "package-preamble": "0.0.2",
+    "rollup": "^0.41.6",
+    "rollup-watch": "^3.2.2"
   }
 }

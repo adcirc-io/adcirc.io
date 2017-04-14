@@ -5,8 +5,8 @@
     <title>ADCIRC.io</title>
 
     <script src="lib/d3.v4.min.js"></script>
-    <!--<script src="../../adcirc-lib/build/adcirc-lib.js"></script>-->
-    <script src="lib/adcirc-lib.min.js"></script>
+    <script src="../../adcirc-lib/build/adcirc-lib.js"></script>
+    <!--<script src="lib/adcirc-lib.min.js"></script>-->
     <script src="https://use.fontawesome.com/6928117062.js"></script>
 
     <link href="css/index.css" rel="stylesheet">
@@ -22,6 +22,7 @@
                 <div class="title">ADCIRC.io</div>
             </div>
             <div class="right">
+                <div id="bounding-box"></div>
                 <div class="title button"><i class="fa fa-fw fa-question-circle" aria-hidden="true"></i></div>
             </div>
         </div>
@@ -36,10 +37,14 @@
             </div>
 
             <div class="sidebar-big">
+                <div id="progress" class="adc-progress"></div>
                 <div id="fort14" class="adc-button button">Open fort.14</div>
+                <div id="fort63" class="adc-button button">Open fort.63</div>
                 <div id="residuals" class="adc-button button">Open residuals</div>
                 <select id="nodal_values" size="3"></select>
                 <select id="elemental_values" size="3"></select>
+                <div id="num-nodes"></div>
+                <div id="num-elements"></div>
             </div>
 
             <canvas id="canvas"></canvas>
@@ -48,7 +53,8 @@
 
     </div>
 
-    <script src="js/index.js"></script>
+    <!--<script src="js/index.js"></script>-->
+    <script src="build/index.js"></script>
 
 </body>
 </html>
