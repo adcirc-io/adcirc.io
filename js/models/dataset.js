@@ -1,15 +1,16 @@
-// import { dispatcher } from '../../../../adcirc-events/index'
-import { dispatcher } from '../../../adcirc-events/index'
+import { dispatcher } from '../../../../adcirc-events/index'
 
 function dataset ( gl ) {
 
     var _mesh = adcirc.mesh();
     var _geometry;
     var _view;
+    var _shader;
 
     var _dataset = dispatcher();
 
     var _timeseries;
+    var _timeseries_name;
 
     _dataset.load_fort_14 = function ( file ) {
 
@@ -27,8 +28,8 @@ function dataset ( gl ) {
 
                 var _bounds = _mesh.bounds( 'depth' );
 
-                var _shader = adcirc
-                    .gradient_shader( gl, 4, _bounds[1], _bounds[0] );
+                _shader = adcirc
+                    .gradient_shader( gl, 2, _bounds[1], _bounds[0] );
 
                 _view = adcirc
                     .view( gl, _geometry, _shader )
@@ -52,7 +53,12 @@ function dataset ( gl ) {
             .on( 'progress', _dataset.dispatch )
             .on( 'timestep', function ( event ) {
 
+                _timeseries = f63;
+                var data_range = event.timestep.data_range()[0];
+                _shader.gradient_stops( data_range );
                 _mesh.nodal_value( 'elevation', event.timestep.data() );
+                _view.nodal_value( 'elevation' );
+                // _mesh.nodal_value( 'elevation', event.timestep.data() );
 
             } )
             .open( file );
@@ -62,18 +68,17 @@ function dataset ( gl ) {
     _dataset.load_residuals = function ( file ) {
 
         var residuals = adcirc.fort63_cached( 20 )
-            .on( 'start', console.log )
-            .on( 'finish', console.log )
-            .on( 'timestep', console.log )
-            .on( 'finish', function () {
-
-                _timeseries = residuals;
-
-            })
+            // .on( 'finish', function () {
+            //
+            //
+            // })
             .on( 'timestep', function ( event ) {
 
-                console.log( event.timestep.index() );
+                _timeseries = residuals;
+                var data_range = event.timestep.data_range()[0];
+                _shader.gradient_stops( [ -0.0004, -0.0005 ] );
                 _mesh.elemental_value( 'residuals', event.timestep.data() );
+                _view.elemental_value( 'residuals' );
 
             })
             .on( 'progress', _dataset.dispatch )
@@ -115,6 +120,25 @@ function dataset ( gl ) {
     };
 
     return _dataset;
+
+    function set_current_timeseries ( name, timeseries ) {
+
+        if ( _timeseries ) {
+
+            _timeseries.off( 'timestep', update_timeseries );
+
+        }
+
+        _timeseries = timeseries;
+        _timeseries_name = name;
+
+
+
+    }
+
+    function update_timeseries ( event ) {
+
+    }
 
 }
 

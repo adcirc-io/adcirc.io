@@ -79,7 +79,6 @@ d3.select( 'body' ).on( 'keydown', function () {
     switch ( d3.event.key ) {
 
         case 'ArrowRight':
-            console.log( data );
             data.next_timestep();
             break;
 
