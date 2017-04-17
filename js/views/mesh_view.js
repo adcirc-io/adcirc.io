@@ -1,4 +1,5 @@
-import { dispatcher } from '../../../../adcirc-events/index'
+// import { dispatcher } from '../../../../adcirc-events/index'
+import { dispatcher } from '../../../adcirc-events/index'
 
 function mesh_view () {
 

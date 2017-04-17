@@ -72,3 +72,21 @@ view_mesh.on( 'elemental_value', function ( event ) {
     data.view( event.elemental_value );
 
 });
+
+// Repond to keyboard events
+d3.select( 'body' ).on( 'keydown', function () {
+
+    switch ( d3.event.key ) {
+
+        case 'ArrowRight':
+            console.log( data );
+            data.next_timestep();
+            break;
+
+        case 'ArrowLeft':
+            data.previous_timestep();
+            break;
+
+    }
+
+});

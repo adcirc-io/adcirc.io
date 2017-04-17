@@ -1,4 +1,5 @@
-import { dispatcher } from '../../../../adcirc-events/index'
+// import { dispatcher } from '../../../../adcirc-events/index'
+import { dispatcher } from '../../../adcirc-events/index'
 
 function dataset ( gl ) {
 
@@ -7,6 +8,8 @@ function dataset ( gl ) {
     var _view;
 
     var _dataset = dispatcher();
+
+    var _timeseries;
 
     _dataset.load_fort_14 = function ( file ) {
 
@@ -58,25 +61,42 @@ function dataset ( gl ) {
 
     _dataset.load_residuals = function ( file ) {
 
-        var residuals = adcirc.fort63()
-            .on( 'ready', function () {
+        var residuals = adcirc.fort63_cached( 20 )
+            .on( 'start', console.log )
+            .on( 'finish', console.log )
+            .on( 'timestep', console.log )
+            .on( 'finish', function () {
 
-                residuals.timestep( 0, function ( event ) {
+                _timeseries = residuals;
 
-                    console.log( 'timestep loaded' );
-                    _mesh.elemental_value( 'residuals', event.timestep.data() );
+            })
+            .on( 'timestep', function ( event ) {
 
-                });
+                console.log( event.timestep.index() );
+                _mesh.elemental_value( 'residuals', event.timestep.data() );
 
             })
             .on( 'progress', _dataset.dispatch )
-            .read( file );
+            .open( file );
 
     };
 
     _dataset.mesh = function () {
         return _mesh;
     };
+
+    _dataset.next_timestep = function () {
+
+        if ( _timeseries ) _timeseries.next_timestep();
+
+    };
+
+    _dataset.previous_timestep = function () {
+
+        if ( _timeseries ) _timeseries.previous_timestep()
+
+    };
+
 
     _dataset.view = function ( value ) {
 
