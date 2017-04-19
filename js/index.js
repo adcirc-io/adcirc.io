@@ -32,6 +32,10 @@ ui.fort14.file_picker( data.load_fort_14 );
 ui.fort63.file_picker( data.load_fort_63 );
 ui.residuals.file_picker( data.load_residuals );
 
+// Set up gradient
+ui.colorbar.height( 20 );
+
+
 // Connect the views to the data
 view_mesh( data.mesh() );
 
@@ -57,6 +61,12 @@ data.on( 'has_view', function ( event ) {
 data.on( 'progress', function ( event ) {
 
     ui.progress.progress( event.progress );
+
+});
+
+data.on( 'gradient', function ( event ) {
+
+    ui.colorbar.stops( event.values, event.colors );
 
 });
 

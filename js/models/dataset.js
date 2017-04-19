@@ -29,7 +29,15 @@ function dataset ( gl ) {
                 var _bounds = _mesh.bounds( 'depth' );
 
                 _shader = adcirc
-                    .gradient_shader( gl, 2, _bounds[1], _bounds[0] );
+                    .gradient_shader( gl, 5, _bounds[1], _bounds[0] );
+
+                _dataset.dispatch({
+                    type: 'gradient',
+                    values: _shader.gradient_stops().reverse(),
+                    colors: _shader.gradient_colors().reverse()
+                });
+
+                console.log( _shader.gradient_stops(), _shader.gradient_colors() );
 
                 _view = adcirc
                     .view( gl, _geometry, _shader )
@@ -68,19 +76,26 @@ function dataset ( gl ) {
     _dataset.load_residuals = function ( file ) {
 
         var residuals = adcirc.fort63_cached( 20 )
-            // .on( 'finish', function () {
-            //
-            //
-            // })
+
             .on( 'timestep', function ( event ) {
 
-                _timeseries = residuals;
-                var data_range = event.timestep.data_range()[0];
-                _shader.gradient_stops( [ -0.0004, -0.0005 ] );
+                var index = event.timestep.index();
+                console.log( index );
+
+                if ( index == 0 ) {
+
+                    _timeseries = residuals;
+
+                    var data_range = event.timestep.data_range()[0];
+                    _shader.gradient_stops( [ data_range[0], data_range[1] ] );
+
+                }
+
+
                 _mesh.elemental_value( 'residuals', event.timestep.data() );
                 _view.elemental_value( 'residuals' );
 
-            })
+            } )
             .on( 'progress', _dataset.dispatch )
             .open( file );
 
