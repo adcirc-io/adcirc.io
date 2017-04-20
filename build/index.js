@@ -159,6 +159,20 @@ function dataset ( gl ) {
     var _timeseries;
     var _timeseries_name;
 
+    _dataset.gradient = function ( event ) {
+
+        if ( _shader ) {
+
+            _shader
+                .gradient_stops( event.stops )
+                .gradient_colors( event.colors );
+
+            _dataset.dispatch({ type: 'render' } );
+
+        }
+
+    };
+
     _dataset.load_fort_14 = function ( file ) {
 
         var f14 = adcirc.fort14()
@@ -180,8 +194,8 @@ function dataset ( gl ) {
 
                 _dataset.dispatch({
                     type: 'gradient',
-                    values: _shader.gradient_stops().reverse(),
-                    colors: _shader.gradient_colors().reverse()
+                    values: _shader.gradient_stops(),
+                    colors: _shader.gradient_colors()
                 });
 
                 console.log( _shader.gradient_stops(), _shader.gradient_colors() );
@@ -541,9 +555,8 @@ ui.fort14.file_picker( data.load_fort_14 );
 ui.fort63.file_picker( data.load_fort_63 );
 ui.residuals.file_picker( data.load_residuals );
 
-// Set up gradient
-ui.colorbar.height( 20 );
-
+// Set up gradient slider
+ui.colorbar.on( 'gradient', data.gradient );
 
 // Connect the views to the data
 view_mesh( data.mesh() );
@@ -578,6 +591,8 @@ data.on( 'gradient', function ( event ) {
     ui.colorbar.stops( event.values, event.colors );
 
 });
+
+data.on( 'render', renderer.render );
 
 // Respond to events from views
 view_mesh.on( 'nodal_value', function ( event ) {

@@ -32,9 +32,8 @@ ui.fort14.file_picker( data.load_fort_14 );
 ui.fort63.file_picker( data.load_fort_63 );
 ui.residuals.file_picker( data.load_residuals );
 
-// Set up gradient
-ui.colorbar.height( 20 );
-
+// Set up gradient slider
+ui.colorbar.on( 'gradient', data.gradient );
 
 // Connect the views to the data
 view_mesh( data.mesh() );
@@ -69,6 +68,8 @@ data.on( 'gradient', function ( event ) {
     ui.colorbar.stops( event.values, event.colors );
 
 });
+
+data.on( 'render', renderer.render );
 
 // Respond to events from views
 view_mesh.on( 'nodal_value', function ( event ) {

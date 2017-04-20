@@ -12,6 +12,20 @@ function dataset ( gl ) {
     var _timeseries;
     var _timeseries_name;
 
+    _dataset.gradient = function ( event ) {
+
+        if ( _shader ) {
+
+            _shader
+                .gradient_stops( event.stops )
+                .gradient_colors( event.colors );
+
+            _dataset.dispatch({ type: 'render' } );
+
+        }
+
+    };
+
     _dataset.load_fort_14 = function ( file ) {
 
         var f14 = adcirc.fort14()
@@ -33,8 +47,8 @@ function dataset ( gl ) {
 
                 _dataset.dispatch({
                     type: 'gradient',
-                    values: _shader.gradient_stops().reverse(),
-                    colors: _shader.gradient_colors().reverse()
+                    values: _shader.gradient_stops(),
+                    colors: _shader.gradient_colors()
                 });
 
                 console.log( _shader.gradient_stops(), _shader.gradient_colors() );
