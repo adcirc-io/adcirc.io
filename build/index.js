@@ -190,19 +190,30 @@ function dataset ( gl ) {
                 var _bounds = _mesh.bounds( 'depth' );
 
                 _shader = adcirc
-                    .gradient_shader( gl, 5, _bounds[1], _bounds[0] );
+                    .gradient_shader( gl, 6, _bounds[1], _bounds[0] );
+
+                _shader.gradient_colors([
+                    d3.rgb( 0, 100, 0 ),
+                    d3.rgb( 0, 175, 0 ),
+                    d3.rgb( 0, 255, 0 ),
+                    d3.rgb( 255, 255, 255 ),
+                    d3.rgb( 0, 255, 255 ),
+                    d3.rgb( 0, 0, 255 )
+                ]);
+
+                _shader.gradient_stops([
+                    _bounds[0], -1.75, -0.5, 0.0, 0.5, _bounds[1]
+                ]);
+
+                _view = adcirc
+                    .view( gl, _geometry, _shader )
+                    .nodal_value( 'depth' );
 
                 _dataset.dispatch({
                     type: 'gradient',
                     values: _shader.gradient_stops(),
                     colors: _shader.gradient_colors()
                 });
-
-                console.log( _shader.gradient_stops(), _shader.gradient_colors() );
-
-                _view = adcirc
-                    .view( gl, _geometry, _shader )
-                    .nodal_value( 'depth' );
 
                 _dataset.dispatch({
                     type: 'has_view',
@@ -524,7 +535,6 @@ function mesh_view () {
 
 }
 
-// Build the UI
 var canvas = d3.select( '#canvas' );
 var renderer = adcirc
     .gl_renderer( canvas )
