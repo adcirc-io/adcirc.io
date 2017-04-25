@@ -8,9 +8,16 @@ function dataset ( gl ) {
     var _shader;
 
     var _dataset = dispatcher();
+    var _fields = [];
 
     var _timeseries;
     var _timeseries_name;
+
+    _dataset.fields = function () {
+
+        return _fields;
+
+    };
 
     _dataset.gradient = function ( event ) {
 
@@ -29,12 +36,14 @@ function dataset ( gl ) {
     _dataset.load_fort_14 = function ( file ) {
 
         var f14 = adcirc.fort14()
+            .on( 'progress', _dataset.dispatch )
             .on( 'nodes', function ( event ) {
                 _mesh.nodes( event.nodes );
             })
             .on( 'elements', function ( event ) {
                 _mesh.elements( event.elements );
             })
+            .on( 'ready', _dataset.dispatch )
             .on( 'ready', function () {
 
                 _geometry = adcirc
@@ -141,7 +150,6 @@ function dataset ( gl ) {
         if ( _timeseries ) _timeseries.previous_timestep()
 
     };
-
 
     _dataset.view = function ( value ) {
 

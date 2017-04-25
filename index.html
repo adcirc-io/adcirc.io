@@ -29,24 +29,35 @@
 
         <div class="main">
 
-            <div class="sidebar-small">
-                <div id="data_tab" class="adc-button square-button active"><i class="fa fa-fw fa-database" aria-hidden="true"></i></div>
-                <div id="chart_tab" class="adc-button square-button inactive"><i class="fa fa-fw fa-bar-chart" aria-hidden="true"></i></div>
-                <div id="terminal_tab" class="adc-button square-button inactive"><i class="fa fa-fw fa-terminal" aria-hidden="true"></i></div>
-                <div id="settings_tab" class="adc-button square-button inactive"><i class="fa fa-fw fa-cog" aria-hidden="true"></i></div>
+            <div id="sidebar" class="sidebar-big">
+                <div id="opening-message" class="item">
+                    <div class="message">
+                        Welcome to ADCIRC.io. To get started, open an ADCIRC mesh.
+                    </div>
+                </div>
+                <div id="fort14-item" class="item">
+                    <div id="fort14" class="adc-button button bordered">Open fort.14</div>
+                </div>
             </div>
 
-            <div class="sidebar-big">
-                <div id="progress" class="adc-progress"></div>
-                <div id="fort14" class="adc-button button">Open fort.14</div>
-                <div id="fort63" class="adc-button button">Open fort.63</div>
-                <div id="residuals" class="adc-button button">Open residuals</div>
-                <select id="nodal_values" size="3"></select>
-                <select id="elemental_values" size="3"></select>
-                <div id="num-nodes"></div>
-                <div id="num-elements"></div>
-                <div id="colorbar" class="adc-gradient"></div>
-            </div>
+            <!--<div class="sidebar-small">-->
+                <!--<div id="data_tab" class="adc-button square-button active"><i class="fa fa-fw fa-database" aria-hidden="true"></i></div>-->
+                <!--<div id="chart_tab" class="adc-button square-button inactive"><i class="fa fa-fw fa-bar-chart" aria-hidden="true"></i></div>-->
+                <!--<div id="terminal_tab" class="adc-button square-button inactive"><i class="fa fa-fw fa-terminal" aria-hidden="true"></i></div>-->
+                <!--<div id="settings_tab" class="adc-button square-button inactive"><i class="fa fa-fw fa-cog" aria-hidden="true"></i></div>-->
+            <!--</div>-->
+
+            <!--<div class="sidebar-big">-->
+                <!--<div id="progress" class="adc-progress"></div>-->
+                <!--<div id="fort14" class="adc-button button">Open fort.14</div>-->
+                <!--<div id="fort63" class="adc-button button">Open fort.63</div>-->
+                <!--<div id="residuals" class="adc-button button">Open residuals</div>-->
+                <!--<select id="nodal_values" size="3"></select>-->
+                <!--<select id="elemental_values" size="3"></select>-->
+                <!--<div id="num-nodes"></div>-->
+                <!--<div id="num-elements"></div>-->
+                <!--<div id="colorbar" class="adc-gradient"></div>-->
+            <!--</div>-->
 
             <canvas id="canvas"></canvas>
 

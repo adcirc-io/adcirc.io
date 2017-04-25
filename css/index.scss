@@ -2,6 +2,7 @@
 @import "colors";
 @import "borders";
 @import "button";
+@import "messages";
 
 html, body {
 
@@ -129,8 +130,62 @@ canvas {
   .sidebar-big {
 
     @extend .sidebar;
-    min-width: 245px;
+    min-width: 320px;
+    max-width: 320px;
     background-color: #f8f8f8;
+
+    .item {
+
+      display: flex;
+      flex-direction: column;
+      padding: 4px;
+
+      .two-col {
+
+        flex: 1 0 auto;
+        padding: 4px 0 4px 0;
+
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+
+        .left {
+
+          font-size: 14px;
+          padding: 0 8px 0 8px;
+
+        }
+
+        .right {
+
+          font-size: 14px;
+          text-align: right;
+          padding: 0 8px 0 8px;
+
+        }
+
+      }
+
+      .clickable {
+
+        &:hover {
+          cursor: pointer;
+        }
+
+      }
+
+    }
+
+    .header {
+
+      font-size: 14px;
+      font-weight: bold;
+      border-bottom: 2px solid lightgray;
+      padding: 8px 6px 8px 6px;
+
+    }
+
+
 
   }
 

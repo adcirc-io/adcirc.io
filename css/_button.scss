@@ -1,11 +1,39 @@
 @import "colors";
+@import "fonts";
 
 .button {
+
+  flex: 1 0 auto;
+
+  display: flex;
+  justify-content: center;
+
+  font-family: $font-sans;
+  font-size: 14px;
+  font-weight: bold;
+
+  margin: 8px;
+  padding: 4px;
+
   cursor: pointer;
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
+
+  &.bordered {
+
+    padding-top: 8px;
+    padding-bottom: 8px;
+    border: 1px solid darkgray;
+
+    &:hover {
+
+      background-color: #e7e7e7;
+
+    }
+
+  }
 
   &.active {
 

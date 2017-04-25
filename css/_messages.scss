@@ -1,0 +1,17 @@
+@import "fonts";
+
+.message {
+
+  flex: 1 1 auto;
+
+  display: flex;
+  justify-content: center;
+  flex-wrap: nowrap;
+
+  padding: 4px;
+
+  font-family: $font-sans;
+  font-size: 14px;
+  text-align: center;
+
+}
