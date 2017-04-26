@@ -16,6 +16,12 @@ var ui = adcirc
 // The container for available mesh fields
 var fields;
 
+// Timestep things
+var timestep_index;
+var timestep_time;
+var current_time;
+var current_index;
+
 // Step 1 is to select a fort.14 file
 ui.fort14.file_picker( function ( file ) {
 
@@ -151,6 +157,20 @@ function display_mesh ( data ) {
 
         });
 
+        data.once( 'ready', function () {
+
+            show_timeseries_controls( sidebar );
+
+            set_current_timestep();
+
+        });
+
+        data.on( 'timestep', function ( event ) {
+
+            set_current_timestep( event.index, event.time );
+
+        });
+
         data.load_fort_63( file );
 
         // Progress bar update function
@@ -197,6 +217,48 @@ function initialize_mesh_datasets ( selection, data ) {
         } );
 
     });
+
+}
+
+function set_current_timestep ( index, time ) {
+
+    current_time = time || current_time;
+    current_index = index || current_index;
+
+    if ( timestep_index ) timestep_index.text( current_index );
+    if ( timestep_time ) timestep_time.text( current_time );
+
+}
+
+function show_timeseries_controls ( sidebar ) {
+
+    var controls = sidebar.selectAll( '.timeseries-control' )
+        .data([{}]);
+
+    controls.exit().remove();
+
+    var new_controls = controls.enter()
+        .append( 'div' )
+        .attr( 'class', 'timeseries-control item' );
+
+    new_controls.append( 'div' )
+        .attr( 'class', 'header' )
+        .text( 'Timeseries Data' );
+
+    var info = new_controls.append( 'div' )
+        .attr( 'class', 'item' );
+
+    var ts_index = info.append( 'div' )
+        .attr( 'class', 'two-col' );
+
+    ts_index.append( 'div' ).attr( 'class', 'left' ).text( 'Timestep Index:' );
+    timestep_index = ts_index.append( 'div' ).attr( 'class', 'right' ).text( 0 );
+
+    var model_time = info.append( 'div' )
+        .attr( 'class', 'two-col' );
+
+    model_time.append( 'div' ).attr( 'class', 'left' ).text( 'Model Time:' );
+    timestep_time = model_time.append( 'div' ).attr( 'class', 'right' ).text( 0 );
 
 }
 

@@ -78,6 +78,12 @@ function dataset ( gl ) {
 
                 _mesh.nodal_value( 'elevation timeseries', event.timestep.data() );
 
+                _dataset.dispatch({
+                    type: 'timestep',
+                    time: event.timestep.model_time(),
+                    index: event.timestep.model_timestep()
+                });
+
 
             })
             .on( 'finish', _dataset.dispatch )
