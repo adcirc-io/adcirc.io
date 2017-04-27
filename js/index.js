@@ -1,5 +1,7 @@
 import { dataset } from './models/dataset_new'
 import { mesh_view } from './views/mesh_view'
+import { display_view } from './views/display_view'
+import { timeseries_view } from './views/timeseries_view'
 
 // Build the UI
 var canvas = d3.select( '#canvas' );
@@ -16,16 +18,29 @@ var ui = adcirc
 // The container for available mesh fields
 var fields;
 
-// Timestep things
-var timestep_index;
-var timestep_time;
-var current_time;
-var current_index;
+
+//// Sidebar sections
+
+// The sidebar itself
+var sidebar = d3.select( '#sidebar' );
+
+// Mesh Properties
+var mesh_properties_section = sidebar.append( 'div' ).attr( 'class', 'item' );
+
+// Mesh data
+var mesh_data_section= sidebar.append( 'div' ).attr( 'class', 'item' );
+
+// Timeseries things
+var timeseries_section = sidebar.append( 'div' ).attr( 'class', 'item' );
+var ts_selection;
+var ts_view = timeseries_view();
+
+// Display options
+var display_options_section = sidebar.append( 'div' ).attr( 'class', 'item' );
+var display_options = display_view();
 
 // Step 1 is to select a fort.14 file
 ui.fort14.file_picker( function ( file ) {
-
-    var sidebar = d3.select( '#sidebar' );
 
     // Remove the opening message
     d3.select( '#opening-message' ).remove();
@@ -48,6 +63,7 @@ ui.fort14.file_picker( function ( file ) {
 
     // Connect events
     data.on( 'progress', update_progress );
+    data.on( 'render', renderer.render );
 
     data.once( 'ready', function () {
 
@@ -65,8 +81,14 @@ ui.fort14.file_picker( function ( file ) {
 
     } );
 
+    ts_view.on( 'request', function ( event ) {
+
+        data.request_timestep( event.value );
+
+    });
+
     // Zoom to the mesh once it's loaded
-    mesh.on( 'bounding_box', function ( event ) {
+    mesh.on( 'bounding_box', function () {
 
         renderer.zoom_to( mesh, 200 );
 
@@ -90,16 +112,12 @@ function display_mesh ( data ) {
     // Get the mesh
     var mesh = data.mesh();
 
-    var sidebar = d3.select( '#sidebar' );
-
     // Add mesh info header
-    sidebar.append( 'div' )
-        .attr( 'class', 'item' )
-        .append( 'div' )
+    mesh_properties_section.append( 'div' )
         .attr( 'class', 'header' )
         .text( 'Mesh Properties' );
 
-    var mesh_info = sidebar.append( 'div' )
+    var mesh_info = mesh_properties_section
         .attr( 'class', 'item' );
 
     // Add number of nodes
@@ -118,17 +136,16 @@ function display_mesh ( data ) {
     element_info.append( 'div' ).attr( 'class', 'right' ).text( mesh.num_elements().toLocaleString() );
 
     // Add the mesh datasets header
-    sidebar.append( 'div' )
-        .attr( 'class', 'item' )
+    mesh_data_section
         .append( 'div' )
         .attr( 'class', 'header' )
         .text( 'Mesh Data' );
 
     // Initialize display of mesh datasets
-    initialize_mesh_datasets( sidebar.append( 'div' ).attr( 'class', 'item' ), data );
+    initialize_mesh_datasets( mesh_data_section.append( 'div' ).attr( 'class', 'item' ), data );
 
     // Add the fort.63 and residuals buttons
-    var fort63_item = sidebar.append( 'div' )
+    var fort63_item = mesh_data_section.append( 'div' )
         .attr( 'class', 'item' );
 
     var fort63 = fort63_item.append( 'div' )
@@ -159,15 +176,30 @@ function display_mesh ( data ) {
 
         data.once( 'ready', function () {
 
-            show_timeseries_controls( sidebar );
-
-            set_current_timestep();
+            show_timeseries_controls( timeseries_section );
 
         });
 
         data.on( 'timestep', function ( event ) {
 
-            set_current_timestep( event.index, event.time );
+            ts_view.timestep( event );
+
+        });
+
+        // Repond to keyboard events
+        d3.select( 'body' ).on( 'keydown', function () {
+
+            switch ( d3.event.key ) {
+
+                case 'ArrowRight':
+                    data.next_timestep();
+                    break;
+
+                case 'ArrowLeft':
+                    data.previous_timestep();
+                    break;
+
+            }
 
         });
 
@@ -181,6 +213,9 @@ function display_mesh ( data ) {
         }
 
     })( fort63 );
+
+    // Add the display options
+    display_options( display_options_section );
 
 }
 
@@ -220,45 +255,10 @@ function initialize_mesh_datasets ( selection, data ) {
 
 }
 
-function set_current_timestep ( index, time ) {
-
-    current_time = time || current_time;
-    current_index = index || current_index;
-
-    if ( timestep_index ) timestep_index.text( current_index );
-    if ( timestep_time ) timestep_time.text( current_time );
-
-}
-
 function show_timeseries_controls ( sidebar ) {
 
-    var controls = sidebar.selectAll( '.timeseries-control' )
-        .data([{}]);
-
-    controls.exit().remove();
-
-    var new_controls = controls.enter()
-        .append( 'div' )
-        .attr( 'class', 'timeseries-control item' );
-
-    new_controls.append( 'div' )
-        .attr( 'class', 'header' )
-        .text( 'Timeseries Data' );
-
-    var info = new_controls.append( 'div' )
-        .attr( 'class', 'item' );
-
-    var ts_index = info.append( 'div' )
-        .attr( 'class', 'two-col' );
-
-    ts_index.append( 'div' ).attr( 'class', 'left' ).text( 'Timestep Index:' );
-    timestep_index = ts_index.append( 'div' ).attr( 'class', 'right' ).text( 0 );
-
-    var model_time = info.append( 'div' )
-        .attr( 'class', 'two-col' );
-
-    model_time.append( 'div' ).attr( 'class', 'left' ).text( 'Model Time:' );
-    timestep_time = model_time.append( 'div' ).attr( 'class', 'right' ).text( 0 );
+    if ( !ts_selection ) ts_selection = sidebar.append( 'div' ).attr( 'class', 'item' );
+    ts_view( ts_selection );
 
 }
 

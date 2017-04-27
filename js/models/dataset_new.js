@@ -8,6 +8,10 @@ function dataset ( gl ) {
     var _mesh = adcirc.mesh();
     var _geometry;
 
+    var _current_view;
+    var _timestep_index = 0;
+    var _timeseries_data = [];
+
     _dataset.mesh = function () {
 
         return _mesh;
@@ -54,7 +58,7 @@ function dataset ( gl ) {
 
     _dataset.load_fort_63 = function ( file ) {
 
-        var f63 = adcirc.fort63_cached( 25 )
+        var f63 = adcirc.fort63_cached( 50 )
             .on( 'progress', _dataset.dispatch )
             .on( 'ready', _dataset.dispatch )
             .on( 'ready', function () {
@@ -76,26 +80,62 @@ function dataset ( gl ) {
             })
             .on( 'timestep', function ( event ) {
 
+                _timestep_index = event.timestep.index();
+
                 _mesh.nodal_value( 'elevation timeseries', event.timestep.data() );
 
                 _dataset.dispatch({
                     type: 'timestep',
                     time: event.timestep.model_time(),
-                    index: event.timestep.model_timestep()
+                    step: event.timestep.model_timestep(),
+                    index: event.timestep.index(),
+                    num_datasets: event.timestep.num_datasets()
                 });
 
+                request_render();
 
             })
             .on( 'finish', _dataset.dispatch )
             .open( file );
 
+        _timeseries_data.push( f63 );
+
         return _dataset;
 
     };
 
-    _dataset.view = function ( name ) {
+    _dataset.request_timestep = function ( index ) {
 
-        console.log( name );
+        if ( index > _timestep_index ) _dataset.next_timestep();
+        if ( index < _timestep_index ) _dataset.previous_timestep();
+
+    };
+
+    _dataset.next_timestep = function () {
+
+        _timeseries_data.forEach( function ( data ) {
+
+            data.next_timestep();
+
+        });
+
+        _dataset.view( _current_view );
+
+    };
+
+    _dataset.previous_timestep = function () {
+
+        _timeseries_data.forEach( function ( data ) {
+
+            data.previous_timestep();
+
+        });
+
+        _dataset.view( _current_view );
+
+    };
+
+    _dataset.view = function ( name ) {
 
         for ( var i=0; i<_views.length; ++i ) {
 
@@ -103,6 +143,7 @@ function dataset ( gl ) {
 
             if ( view.name === name ) {
 
+                _current_view = name;
                 _mesh.nodal_value( name );
                 view.view.nodal_value( name );
 
@@ -166,6 +207,14 @@ function dataset ( gl ) {
         ]);
 
         return shader;
+
+    }
+
+    function request_render () {
+
+        _dataset.dispatch({
+            type: 'render'
+        });
 
     }
 

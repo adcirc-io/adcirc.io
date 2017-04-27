@@ -155,6 +155,10 @@ function dataset ( gl ) {
     var _mesh = adcirc.mesh();
     var _geometry;
 
+    var _current_view;
+    var _timestep_index = 0;
+    var _timeseries_data = [];
+
     _dataset.mesh = function () {
 
         return _mesh;
@@ -201,7 +205,7 @@ function dataset ( gl ) {
 
     _dataset.load_fort_63 = function ( file ) {
 
-        var f63 = adcirc.fort63_cached( 25 )
+        var f63 = adcirc.fort63_cached( 50 )
             .on( 'progress', _dataset.dispatch )
             .on( 'ready', _dataset.dispatch )
             .on( 'ready', function () {
@@ -223,26 +227,62 @@ function dataset ( gl ) {
             })
             .on( 'timestep', function ( event ) {
 
+                _timestep_index = event.timestep.index();
+
                 _mesh.nodal_value( 'elevation timeseries', event.timestep.data() );
 
                 _dataset.dispatch({
                     type: 'timestep',
                     time: event.timestep.model_time(),
-                    index: event.timestep.model_timestep()
+                    step: event.timestep.model_timestep(),
+                    index: event.timestep.index(),
+                    num_datasets: event.timestep.num_datasets()
                 });
 
+                request_render();
 
             })
             .on( 'finish', _dataset.dispatch )
             .open( file );
 
+        _timeseries_data.push( f63 );
+
         return _dataset;
 
     };
 
-    _dataset.view = function ( name ) {
+    _dataset.request_timestep = function ( index ) {
 
-        console.log( name );
+        if ( index > _timestep_index ) _dataset.next_timestep();
+        if ( index < _timestep_index ) _dataset.previous_timestep();
+
+    };
+
+    _dataset.next_timestep = function () {
+
+        _timeseries_data.forEach( function ( data ) {
+
+            data.next_timestep();
+
+        });
+
+        _dataset.view( _current_view );
+
+    };
+
+    _dataset.previous_timestep = function () {
+
+        _timeseries_data.forEach( function ( data ) {
+
+            data.previous_timestep();
+
+        });
+
+        _dataset.view( _current_view );
+
+    };
+
+    _dataset.view = function ( name ) {
 
         for ( var i=0; i<_views.length; ++i ) {
 
@@ -250,6 +290,7 @@ function dataset ( gl ) {
 
             if ( view.name === name ) {
 
+                _current_view = name;
                 _mesh.nodal_value( name );
                 view.view.nodal_value( name );
 
@@ -316,6 +357,671 @@ function dataset ( gl ) {
 
     }
 
+    function request_render () {
+
+        _dataset.dispatch({
+            type: 'render'
+        });
+
+    }
+
+}
+
+function slider () {
+
+    var _selection;
+    var _bar;
+
+    var _arrows = 'both';
+    var _bar_color = 'dimgray';
+    var _color = 'lightgray';
+    var _current = 0;
+    var _width;
+    var _height = 20;
+
+    var _drag_bar = d3.drag().on( 'drag', dragged );
+    var _drag_slider = d3.drag().on( 'start', clicked ).on( 'drag', dragged );
+    var _draggable = true;
+    var _jumpable = true;
+    var _request = false;
+
+    var _continuous = false;
+    var _step = 1;
+    var _domain = [0, 100];
+    var _value_to_value = d3.scaleQuantize();
+    var _value_to_percent = d3.scaleLinear().range( [0, 100] ).clamp( true );
+    var _pixel_to_value = d3.scaleLinear();
+
+    function _slider ( selection ) {
+
+        // Setup
+        _selection = selection
+            .style( 'position', 'relative' )
+            .style( 'width', '100%' )
+            .style( 'margin-top', '4px' )
+            .style( 'margin-bottom', '4px' )
+            .style( 'user-select', 'none' );
+
+        _bar = _selection
+            .selectAll( 'div' )
+            .data( [ 'slider_bar' ] );
+
+        _bar.exit()
+            .remove();
+
+        _bar = _bar.enter()
+            .append( 'div' )
+            .merge( _bar );
+
+        _bar.style( 'position', 'relative' )
+            .style( 'left', 0 )
+            .style( 'width', '1px' )
+            .style( 'background-clip', 'content-box' )
+            .style( 'margin', '-4px' )
+            .style( 'border-width', '4px' )
+            .style( 'border-style', 'solid' )
+            .style( 'user-select', 'none' );
+
+        // Scales
+        _width = _selection.node().getBoundingClientRect().width;
+        _pixel_to_value.domain( [ 0, _width ] );
+
+        // Events
+        _selection
+            .on( 'mousedown', clicked )
+            .on( 'wheel', scrolled );
+
+        // Initialize
+        _slider.arrows( _arrows );
+        _slider.bar( _bar_color );
+        _slider.color( _color );
+        _slider.domain( _domain );
+        _slider.draggable( _draggable );
+        _slider.height( _height );
+        _slider.jumpable( _jumpable );
+
+        return _slider;
+
+    }
+
+    _slider.arrows = function ( _ ) {
+        if ( !arguments.length ) return _arrows;
+        if ( _ == 'top' || _ == 'bottom' || _ == 'both' || _ == 'none' ) {
+            _arrows = _;
+            if ( _bar ) {
+                switch ( _arrows ) {
+
+                    case 'both':
+                        _bar.style( 'border-color', _bar_color + ' transparent ' + _bar_color + ' transparent' );
+                        break;
+
+                    case 'top':
+                        _bar.style( 'border-color', _bar_color + ' transparent transparent transparent' );
+                        break;
+
+                    case 'bottom':
+                        _bar.style( 'border-color', 'transparent transparent ' + _bar_color + ' transparent' );
+                        break;
+
+                    default:
+                        _bar.style( 'border-color', 'transparent transparent transparent transparent' );
+                        break;
+
+                }
+            }
+        }
+        return _slider;
+    };
+
+    _slider.bar = function ( _ ) {
+        if ( !arguments.length ) return _bar_color;
+        _bar_color = _;
+        if ( _bar ) {
+            _bar.style( 'background-color', _bar_color );
+            _slider.arrows( _arrows );
+        }
+        return _slider;
+    };
+
+    _slider.color = function ( _ ) {
+        if ( !arguments.length ) return _color;
+        _color = _;
+        if ( _selection ) _selection.style( 'background-color', _color );
+        return _slider;
+    };
+
+    _slider.continuous = function ( _ ) {
+        return arguments.length ? ( _continuous = !!_, _slider ) : _continuous;
+    };
+
+    _slider.current = function ( _ ) {
+        return arguments.length ? ( set_current( _ ), _slider ) : _current;
+    };
+
+    _slider.domain = function ( _ ) {
+        if ( !arguments.length ) return _value_to_percent.domain();
+
+        _domain = _;
+        var _range = [];
+        _step = arguments.length == 2 ? arguments[1] : 1;
+        for ( var i=_[0]; i<=_[1]; i+=_step ) _range.push( i );
+
+        _value_to_value.domain( _ ).range( _range );
+        _value_to_percent.domain( _ );
+        _pixel_to_value.range( _ );
+
+        return _slider;
+    };
+
+    _slider.draggable = function ( _ ) {
+        if ( !arguments.length ) return _draggable;
+        _draggable = !!_;
+        if ( _bar ) {
+            if ( !_draggable ) _bar.style( 'cursor', null ).on( '.drag', null );
+            else _bar.style( 'cursor', 'pointer' ).call( _drag_bar );
+        }
+        return _slider;
+    };
+
+    _slider.height = function ( _ ) {
+        if ( !arguments.length ) return _height;
+        _height = _;
+        if ( _selection ) _selection.style( 'min-height', _height + 'px' );
+        if ( _bar ) _bar.style( 'min-height', _height + 'px' );
+        return _slider;
+    };
+
+    _slider.jumpable = function ( _ ) {
+        if ( !arguments.length ) return _jumpable;
+        _jumpable = !!_;
+        if ( _selection ) {
+            if ( !_jumpable ) _selection.style( 'cursor', null ).on( '.drag', null );
+            else _selection.style( 'cursor', 'pointer' ).call( _drag_slider );
+        }
+        return _slider;
+    };
+
+    _slider.needs_request = function ( _ ) {
+        if ( !arguments.length ) return _request;
+        _request = !!_;
+        return _slider;
+    };
+
+    _slider.set = function ( value ) {
+
+        set_current( value );
+
+    };
+
+    return dispatcher( _slider );
+
+    function clamp ( value ) {
+        var domain = _value_to_percent.domain();
+        if ( value < domain[0] ) return domain[0];
+        if ( value > domain[1] ) return domain[1];
+        return value;
+    }
+
+    function clicked () {
+
+        if ( _jumpable ) {
+            var pixel = d3.mouse( this )[ 0 ];
+            if ( pixel < 0 ) pixel = 0;
+            if ( pixel > _width ) pixel = _width;
+            var value = _pixel_to_value( pixel );
+            if ( set_current( value ) ) dispatch_current();
+        }
+
+    }
+
+    function dispatch_current () {
+
+        _slider.dispatch( {
+            type: 'value',
+            value: _current
+        } );
+
+    }
+
+    function dispatch_request ( value ) {
+
+        var request_value = _current;
+        if ( value > _current ) request_value += _step;
+        if ( value < _current ) request_value -= _step;
+
+        if ( request_value !== _current ) {
+
+            _slider.dispatch( {
+                type: 'request',
+                value: request_value
+            } );
+
+        }
+
+    }
+
+    function dragged () {
+
+        if ( _draggable ) {
+            var pixel = d3.event.x;
+            if ( pixel < 0 ) pixel = 0;
+            if ( pixel > _width ) pixel = _width;
+            var value = _pixel_to_value( pixel );
+            if ( _request ) dispatch_request( value );
+            else if ( set_current( value ) ) dispatch_current();
+        }
+
+    }
+
+    function scrolled () {
+
+        if ( _draggable ) {
+            var multiplier = d3.event.shiftKey ? 10*_step : _step;
+            var direction = d3.event.deltaX < 0 || d3.event.deltaY < 0 ? 1 : -1;
+            if ( set_current( _slider.current() + multiplier * direction ) ) dispatch_current();
+        }
+
+    }
+
+    function set_current ( value ) {
+        value = _continuous ? clamp( value ) : _value_to_value( value );
+        if ( value !== _current ) {
+            if ( _jumpable ) _current = value;
+            else _current = value > _current ? _current + _step : _current - _step;
+            if ( _bar ) _bar.style( 'left', _value_to_percent( _current ) + '%' );
+            return true;
+        }
+        return false;
+    }
+
+    
+
+}
+
+function vertical_gradient () {
+
+    var _selection;
+    var _bar;
+    var _track;
+    var _sliders;
+
+    var _bar_width = 50;
+    var _track_width = 75;
+    var _height = 250;
+
+    var _stops = [
+        { stop: 0, color: 'lightsteelblue' },
+        { stop: 1, color: 'steelblue' }
+    ];
+
+    var _percent_to_value = d3.scaleLinear().domain( [ 0, 1 ] ).range( [ 0, 1 ] );
+    var _percent_to_pixel = d3.scaleLinear().domain( [ 0, 1 ] ).range( [ _height, 0 ] );
+
+
+    function _gradient ( selection ) {
+
+        // Keep track of selection that will be the gradient
+        _selection = selection;
+
+        // Apply the layout
+        layout( _selection );
+
+        // Return the gradient
+        return _gradient;
+
+    }
+
+    _gradient.stops = function ( stops, colors ) {
+
+        var extent = d3.extent( stops );
+
+        _percent_to_value.range( extent );
+
+        _stops = [];
+
+        for ( var i=0; i<stops.length; ++i ) {
+
+            _stops.push( { stop: _percent_to_value.invert( stops[i] ), color: colors[i] } );
+
+        }
+
+        _stops = _stops.sort( sort );
+
+        layout( _selection );
+
+        return _gradient;
+
+    };
+
+    function build_css_gradient ( stops ) {
+
+        var css = 'linear-gradient( 0deg, ';
+
+        for ( var i=0; i<stops.length; ++i  ){
+
+            var color = stops[i].color;
+            var percent = 100 * stops[i].stop;
+            css += color + ' ' + percent + '%';
+
+            if ( i < stops.length-1 ) css += ',';
+
+        }
+
+        return css + ')';
+
+    }
+
+    function dragged ( d ) {
+
+        var y = Math.max( 0, Math.min( _height, d3.event.y ) );
+
+        d3.select( this )
+            .style( 'top', y + 'px' );
+
+        d.stop = _percent_to_pixel.invert( y );
+
+        var sorted = _stops.sort( sort );
+
+        _bar.style( 'background', build_css_gradient( sorted ) );
+        _sliders.each( slider_text );
+
+        _gradient.dispatch({
+            type: 'gradient',
+            stops: sorted.map( function ( stop ) { return _percent_to_value( stop.stop ); } ),
+            colors: sorted.map( function ( stop ) { return stop.color; } )
+        });
+
+    }
+
+    function layout ( selection ) {
+
+        selection
+            .style( 'position', 'relative' )
+            .style( 'width', ( _bar_width + _track_width ) + 'px' )
+            .style( 'user-select', 'none' )
+            .style( 'min-height', _height + 'px' );
+
+        _bar = selection
+            .selectAll( '.gradient-bar' )
+            .data( [ {} ] );
+
+        _bar.exit().remove();
+
+        _bar = _bar.enter()
+            .append( 'div' )
+            .attr( 'class', 'gradient-bar' )
+            .merge( _bar );
+
+        _bar.style( 'position', 'absolute' )
+            .style( 'top', 0 )
+            .style( 'left', 0 )
+            .style( 'width', _bar_width + 'px' )
+            .style( 'height', '100%' )
+            .style( 'background', build_css_gradient( _stops ) )
+            .style( 'user-select', 'none' );
+
+        _track = selection
+            .selectAll( '.gradient-track' )
+            .data( [ {} ] );
+
+        _track.exit().remove();
+
+        _track = _track.enter()
+            .append( 'div' )
+            .attr( 'class', 'gradient-track' )
+            .merge( _track );
+
+        _track.style( 'position', 'absolute' )
+            .style( 'top', 0 )
+            .style( 'left', _bar_width + 'px' )
+            .style( 'width', _track_width + 'px' )
+            .style( 'height', '100%' )
+            .style( 'user-select', 'none' );
+
+        position_sliders();
+
+    }
+
+    function position_sliders () {
+
+        _sliders = _track.selectAll( '.slider' )
+            .data( _stops );
+
+        _sliders.exit().remove();
+
+        _sliders = _sliders.enter()
+            .append( 'div' )
+            .attr( 'class', 'slider' )
+            .merge( _sliders );
+
+        _sliders
+            .style( 'width', '0px' )
+            .style( 'height', '1px' )
+            .style( 'border-width', '8px' )
+            .style( 'border-style', 'solid' )
+            .style( 'margin-top', '-8px' )
+            .style( 'margin-left', '-8px')
+            .style( 'position', 'absolute' )
+            .style( 'left', 0 )
+            .each( function ( d ) {
+
+                d3.select( this )
+                    .style( 'top', ( _height - d.stop * _height ) + 'px' )
+                    .style( 'border-color', 'transparent ' + d.color + ' transparent transparent' )
+                    .style( 'user-select', 'none' );
+
+            })
+            .each( slider_text )
+            .call( d3.drag()
+                .on( 'drag', dragged )
+            );
+
+    }
+
+    function sort ( a, b ) {
+
+        return a.stop > b.stop;
+
+    }
+
+    function slider_text ( d ) {
+
+        var text = d3.select( this )
+            .selectAll( 'div' ).data( [ {} ] );
+
+        text.exit().remove();
+
+        text = text.enter()
+            .append( 'div' )
+            .merge( text );
+
+        text.style( 'position', 'absolute' )
+            .style( 'top', '50%' )
+            .style( 'left', '8px' )
+            .style( 'transform', 'translateY(-50%)' )
+            .style( 'padding-left', '4px' )
+            .style( 'font-size', '13px' )
+            .style( 'font-family', 'serif' )
+            .style( 'min-width', ( _track_width - 12 ) + 'px' )
+            .style( 'user-select', 'none' )
+            .style( 'cursor', 'default' )
+            .text( _percent_to_value( d.stop ).toFixed( 2 ) );
+
+    }
+
+    return dispatcher( _gradient );
+
+}
+
+function display_view () {
+
+    var _gradient = vertical_gradient();
+
+    var _header_text = 'Display Options';
+
+    var _view = function ( selection ) {
+
+        // Set up the header
+        var _header = selection.selectAll( '.display-header' )
+            .data( [ _header_text ] );
+
+        _header.exit().remove();
+
+        _header = _header.enter()
+            .append( 'div' )
+            .attr( 'class', 'header display-header' )
+            .merge( _header );
+
+        _header.text( function ( d ) {
+            return d;
+        } );
+
+
+        // Set up gradient section
+        var _grad = selection.selectAll( '.display-gradient' )
+            .data( [ {} ] );
+
+        _grad.exit().remove();
+
+        _grad = _grad.enter()
+            .append( 'div' )
+            .attr( 'class', 'display-gradient item' )
+            .style( 'margin', '10px' )
+            .merge( _grad );
+
+        _gradient( _grad );
+
+    };
+
+    dispatcher( _view );
+
+    return _view;
+
+}
+
+function timeseries_view () {
+
+    var _current_timestep;
+    var _timestep_index;
+    var _timestep_step;
+    var _timestep_time;
+    var _timestep_slider = slider()
+        .height( 15 )
+        .jumpable( false )
+        .needs_request( true );
+
+    var _slider;
+
+    var _header_text = 'Timeseries Data';
+    var _index_text = 'Dataset:';
+    var _step_text = 'Timestep:';
+    var _time_text = 'Model Time:';
+
+    var _initialized = false;
+
+    var _view = function ( selection ) {
+
+        // Set up the header
+        var _header = selection.selectAll( '.timeseries-header' )
+            .data( [ _header_text ] );
+
+        _header.exit().remove();
+
+        _header = _header.enter()
+            .append( 'div' )
+            .attr( 'class', 'header timeseries-header' )
+            .merge( _header );
+
+        _header.text( function ( d ) {
+            return d;
+        } );
+
+
+        // Set up info section
+        var _info = selection.selectAll( '.timeseries-info' )
+            .data( [ {} ] );
+
+        _info.exit().remove();
+
+        _info = _info.enter()
+            .append( 'div' )
+            .attr( 'class', 'timeseries-info item' )
+            .merge( _info );
+
+        var _index = _info.append( 'div' )
+            .attr( 'class', 'two-col' );
+        var _step = _info.append( 'div' )
+            .attr( 'class', 'two-col' );
+        var _time = _info.append( 'div' )
+            .attr( 'class', 'two-col' );
+
+        _index.append( 'div' ).attr( 'class', 'left' ).text( _index_text );
+        _step.append( 'div' ).attr( 'class', 'left' ).text( _step_text );
+        _time.append( 'div' ).attr( 'class', 'left' ).text( _time_text );
+
+        _timestep_index = _index.append( 'div' ).attr( 'class', 'right' );
+        _timestep_step = _step.append( 'div' ).attr( 'class', 'right' );
+        _timestep_time = _time.append( 'div' ).attr( 'class', 'right' );
+
+
+        // Set up slider
+        _slider = selection.selectAll( '.timeseries-slider' )
+            .data( [ {} ] );
+
+        _slider.exit().remove();
+
+        _slider = _slider.enter()
+            .append( 'div' )
+            .attr( 'class', 'timeseries-slider item' )
+            .merge( _slider )
+            .append( 'div' );
+
+        _timestep_slider( _slider );
+
+        set_timestep( _current_timestep );
+
+    };
+
+    _view.timestep = function ( timestep ) {
+
+        if ( !arguments.length ) return _current_timestep;
+        set_timestep( timestep );
+        return _view;
+
+    };
+
+    dispatcher( _view );
+
+    _timestep_slider.on( 'request', _view.dispatch );
+
+    return _view;
+
+    function set_timestep ( timestep ) {
+
+        if ( timestep !== undefined ) {
+
+            _current_timestep = timestep;
+            _timestep_slider.set( _current_timestep.index );
+
+            if ( !_initialized ) {
+
+                _initialized = true;
+                _timestep_slider.domain( [ 0, _current_timestep.num_datasets ] );
+
+            }
+
+            if ( _timestep_index ) _timestep_index.text(
+                ( _current_timestep.index + 1 ).toLocaleString() +
+                '/' +
+                _current_timestep.num_datasets.toLocaleString()
+            );
+            if ( _timestep_step ) _timestep_step.text( _current_timestep.step.toLocaleString() );
+            if ( _timestep_time ) _timestep_time.text( _current_timestep.time.toLocaleString() );
+
+        }
+
+    }
+
 }
 
 // Build the UI
@@ -333,16 +1039,29 @@ var ui = adcirc
 // The container for available mesh fields
 var fields;
 
-// Timestep things
-var timestep_index;
-var timestep_time;
-var current_time;
-var current_index;
+
+//// Sidebar sections
+
+// The sidebar itself
+var sidebar = d3.select( '#sidebar' );
+
+// Mesh Properties
+var mesh_properties_section = sidebar.append( 'div' ).attr( 'class', 'item' );
+
+// Mesh data
+var mesh_data_section= sidebar.append( 'div' ).attr( 'class', 'item' );
+
+// Timeseries things
+var timeseries_section = sidebar.append( 'div' ).attr( 'class', 'item' );
+var ts_selection;
+var ts_view = timeseries_view();
+
+// Display options
+var display_options_section = sidebar.append( 'div' ).attr( 'class', 'item' );
+var display_options = display_view();
 
 // Step 1 is to select a fort.14 file
 ui.fort14.file_picker( function ( file ) {
-
-    var sidebar = d3.select( '#sidebar' );
 
     // Remove the opening message
     d3.select( '#opening-message' ).remove();
@@ -365,6 +1084,7 @@ ui.fort14.file_picker( function ( file ) {
 
     // Connect events
     data.on( 'progress', update_progress );
+    data.on( 'render', renderer.render );
 
     data.once( 'ready', function () {
 
@@ -382,8 +1102,14 @@ ui.fort14.file_picker( function ( file ) {
 
     } );
 
+    ts_view.on( 'request', function ( event ) {
+
+        data.request_timestep( event.value );
+
+    });
+
     // Zoom to the mesh once it's loaded
-    mesh.on( 'bounding_box', function ( event ) {
+    mesh.on( 'bounding_box', function () {
 
         renderer.zoom_to( mesh, 200 );
 
@@ -407,16 +1133,12 @@ function display_mesh ( data ) {
     // Get the mesh
     var mesh = data.mesh();
 
-    var sidebar = d3.select( '#sidebar' );
-
     // Add mesh info header
-    sidebar.append( 'div' )
-        .attr( 'class', 'item' )
-        .append( 'div' )
+    mesh_properties_section.append( 'div' )
         .attr( 'class', 'header' )
         .text( 'Mesh Properties' );
 
-    var mesh_info = sidebar.append( 'div' )
+    var mesh_info = mesh_properties_section
         .attr( 'class', 'item' );
 
     // Add number of nodes
@@ -435,17 +1157,16 @@ function display_mesh ( data ) {
     element_info.append( 'div' ).attr( 'class', 'right' ).text( mesh.num_elements().toLocaleString() );
 
     // Add the mesh datasets header
-    sidebar.append( 'div' )
-        .attr( 'class', 'item' )
+    mesh_data_section
         .append( 'div' )
         .attr( 'class', 'header' )
         .text( 'Mesh Data' );
 
     // Initialize display of mesh datasets
-    initialize_mesh_datasets( sidebar.append( 'div' ).attr( 'class', 'item' ), data );
+    initialize_mesh_datasets( mesh_data_section.append( 'div' ).attr( 'class', 'item' ), data );
 
     // Add the fort.63 and residuals buttons
-    var fort63_item = sidebar.append( 'div' )
+    var fort63_item = mesh_data_section.append( 'div' )
         .attr( 'class', 'item' );
 
     var fort63 = fort63_item.append( 'div' )
@@ -476,15 +1197,30 @@ function display_mesh ( data ) {
 
         data.once( 'ready', function () {
 
-            show_timeseries_controls( sidebar );
-
-            set_current_timestep();
+            show_timeseries_controls( timeseries_section );
 
         });
 
         data.on( 'timestep', function ( event ) {
 
-            set_current_timestep( event.index, event.time );
+            ts_view.timestep( event );
+
+        });
+
+        // Repond to keyboard events
+        d3.select( 'body' ).on( 'keydown', function () {
+
+            switch ( d3.event.key ) {
+
+                case 'ArrowRight':
+                    data.next_timestep();
+                    break;
+
+                case 'ArrowLeft':
+                    data.previous_timestep();
+                    break;
+
+            }
 
         });
 
@@ -498,6 +1234,9 @@ function display_mesh ( data ) {
         }
 
     })( fort63 );
+
+    // Add the display options
+    display_options( display_options_section );
 
 }
 
@@ -537,45 +1276,10 @@ function initialize_mesh_datasets ( selection, data ) {
 
 }
 
-function set_current_timestep ( index, time ) {
-
-    current_time = time || current_time;
-    current_index = index || current_index;
-
-    if ( timestep_index ) timestep_index.text( current_index );
-    if ( timestep_time ) timestep_time.text( current_time );
-
-}
-
 function show_timeseries_controls ( sidebar ) {
 
-    var controls = sidebar.selectAll( '.timeseries-control' )
-        .data([{}]);
-
-    controls.exit().remove();
-
-    var new_controls = controls.enter()
-        .append( 'div' )
-        .attr( 'class', 'timeseries-control item' );
-
-    new_controls.append( 'div' )
-        .attr( 'class', 'header' )
-        .text( 'Timeseries Data' );
-
-    var info = new_controls.append( 'div' )
-        .attr( 'class', 'item' );
-
-    var ts_index = info.append( 'div' )
-        .attr( 'class', 'two-col' );
-
-    ts_index.append( 'div' ).attr( 'class', 'left' ).text( 'Timestep Index:' );
-    timestep_index = ts_index.append( 'div' ).attr( 'class', 'right' ).text( 0 );
-
-    var model_time = info.append( 'div' )
-        .attr( 'class', 'two-col' );
-
-    model_time.append( 'div' ).attr( 'class', 'left' ).text( 'Model Time:' );
-    timestep_time = model_time.append( 'div' ).attr( 'class', 'right' ).text( 0 );
+    if ( !ts_selection ) ts_selection = sidebar.append( 'div' ).attr( 'class', 'item' );
+    ts_view( ts_selection );
 
 }
 
