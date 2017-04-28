@@ -89,7 +89,8 @@ function dataset ( gl ) {
                     time: event.timestep.model_time(),
                     step: event.timestep.model_timestep(),
                     index: event.timestep.index(),
-                    num_datasets: event.timestep.num_datasets()
+                    num_datasets: event.timestep.num_datasets(),
+                    bounds: event.timestep.data_range()[0]
                 });
 
                 request_render();

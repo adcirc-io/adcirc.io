@@ -37,7 +37,8 @@ var ts_view = timeseries_view();
 
 // Display options
 var display_options_section = sidebar.append( 'div' ).attr( 'class', 'item' );
-var display_options = display_view();
+var display_options = display_view()
+    .on( 'render', renderer.render );
 
 // Step 1 is to select a fort.14 file
 ui.fort14.file_picker( function ( file ) {
@@ -183,6 +184,7 @@ function display_mesh ( data ) {
         data.on( 'timestep', function ( event ) {
 
             ts_view.timestep( event );
+            display_options.bounds( event.bounds );
 
         });
 
@@ -225,8 +227,12 @@ function initialize_mesh_datasets ( selection, data ) {
 
     data.on( 'view', function ( event ) {
 
+        // Tell the renderer to render the view
         renderer.set_view( event.view );
         renderer.render();
+
+        // Tell the display options to show the gradient
+        display_options.view( event.view );
 
     });
 
