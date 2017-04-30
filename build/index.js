@@ -147,7 +147,10 @@ function dispatcher ( object ) {
 
 }
 
-function dataset ( gl ) {
+function dataset ( renderer ) {
+
+    var _renderer = renderer;
+    var _gl = _renderer.gl_context();
 
     var _dataset = dispatcher();
     var _views = [];
@@ -158,12 +161,6 @@ function dataset ( gl ) {
     var _current_view;
     var _timestep_index = 0;
     var _timeseries_data = [];
-
-    _dataset.mesh = function () {
-
-        return _mesh;
-
-    };
 
 
     _dataset.load_fort_14 = function ( file ) {
@@ -180,11 +177,10 @@ function dataset ( gl ) {
                 _mesh.elements( event.elements );
 
             })
-            .on( 'ready', _dataset.dispatch )
             .on( 'ready', function () {
 
                 // Create the geometry
-                _geometry = adcirc.geometry( gl, _mesh );
+                _geometry = adcirc.geometry( _gl, _mesh );
 
                 // Get the depth bounds
                 var bounds = _mesh.bounds( 'depth' );
@@ -193,8 +189,13 @@ function dataset ( gl ) {
                 var shader = depth_shader( bounds[0], bounds[1] );
 
                 // Add depth as a new view
-                var view = adcirc.view( gl, _geometry, shader ).nodal_value( 'depth' );
+                var view = adcirc.view( _gl, _geometry, shader ).nodal_value( 'depth' );
                 add_view( 'depth', view );
+
+                // Tell everyone the mesh is loaded
+                _dataset.dispatch({
+                    type: 'mesh_loaded'
+                });
 
             })
             .read( file );
@@ -220,7 +221,7 @@ function dataset ( gl ) {
                 var shader = elevation_shader( bounds[0], bounds[1] );
 
                 // Create the view
-                var view = adcirc.view( gl, _geometry, shader );
+                var view = adcirc.view( _gl, _geometry, shader );
                 add_view( 'elevation timeseries', view );
 
 
@@ -230,6 +231,10 @@ function dataset ( gl ) {
                 _timestep_index = event.timestep.index();
 
                 _mesh.nodal_value( 'elevation timeseries', event.timestep.data() );
+
+                _dataset.dispatch({
+                    type: 'has_timeseries'
+                });
 
                 _dataset.dispatch({
                     type: 'timestep',
@@ -243,12 +248,25 @@ function dataset ( gl ) {
                 request_render();
 
             })
+            .on( 'start', _dataset.dispatch )
             .on( 'finish', _dataset.dispatch )
             .open( file );
 
         _timeseries_data.push( f63 );
 
         return _dataset;
+
+    };
+
+    _dataset.mesh = function () {
+
+        return _mesh;
+
+    };
+
+    _dataset.repaint = function () {
+
+        _renderer.render();
 
     };
 
@@ -297,14 +315,23 @@ function dataset ( gl ) {
 
                 _dataset.dispatch({
                     type: 'view',
+                    name: name,
                     view: view.view
                 });
+
+                _dataset.repaint();
 
                 return;
 
             }
 
         }
+
+    };
+
+    _dataset.views = function () {
+
+        return _views;
 
     };
 
@@ -318,7 +345,7 @@ function dataset ( gl ) {
         });
 
         _dataset.dispatch({
-            type: 'view_created',
+            type: 'new_view',
             name: name,
             view: view
         });
@@ -327,7 +354,7 @@ function dataset ( gl ) {
 
     function depth_shader ( lower_bound, upper_bound ) {
 
-        var shader = adcirc.gradient_shader( gl, 6 );
+        var shader = adcirc.gradient_shader( _gl, 6 );
 
         shader.gradient_stops([ lower_bound, -1.75, -0.5, 0.0, 0.5, upper_bound ]);
         shader.gradient_colors([
@@ -345,13 +372,17 @@ function dataset ( gl ) {
 
     function elevation_shader ( lower_bound, upper_bound ) {
 
-        var shader = adcirc.gradient_shader ( gl, 3 );
+        var shader = adcirc.gradient_shader ( _gl, 3 );
 
-        shader.gradient_stops([ lower_bound, 0.0, upper_bound ]);
+        shader.gradient_stops([
+            lower_bound,
+            0.0,
+            upper_bound
+        ]);
         shader.gradient_colors([
-            d3.color( 'steelblue' ).rgb(),
             d3.color( 'white' ).rgb(),
-            d3.color( 'lightsteelblue' ).rgb()
+            d3.color( 'lightsteelblue' ).rgb(),
+            d3.color( 'darkblue' ).rgb()
         ]);
 
         return shader;
@@ -363,6 +394,241 @@ function dataset ( gl ) {
         _dataset.dispatch({
             type: 'render'
         });
+
+    }
+
+}
+
+function mesh_properties_view$1 () {
+
+    var _header_text = 'Mesh Properties';
+    var _nodes_text = 'Nodes:';
+    var _elements_text = 'Elements:';
+
+    var _num_elements = 0;
+    var _num_nodes = 0;
+
+    var _nodes;
+    var _elements;
+
+    var _view = function ( selection ) {
+
+        // Add the header
+        selection.append( 'div' )
+            .attr( 'class', 'header' )
+            .text( _header_text );
+
+        // Add the info section
+        var _info = selection.append( 'div' )
+            .attr( 'class', 'mesh_properties item' );
+
+        // Add properties
+        var _nodes_container = _info.append( 'div' ).attr( 'class', 'two-col' );
+        var _elements_container = _info.append( 'div' ).attr( 'class', 'two-col' );
+
+        _nodes_container.append( 'div' ).attr( 'class', 'left' ).text( _nodes_text );
+        _elements_container.append( 'div' ).attr( 'class', 'left' ).text( _elements_text );
+
+        _nodes = _nodes_container.append( 'div' ).attr( 'class', 'right' );
+        _elements = _elements_container.append( 'div' ).attr( 'class', 'right' );
+
+        update();
+
+        return _view;
+
+    };
+
+    _view.num_elements = function ( _ ) {
+
+        if ( !arguments.length ) return _elements.text();
+        _num_elements = _;
+        update();
+        return _view;
+
+    };
+
+    _view.num_nodes = function ( _ ) {
+
+        if ( !arguments.length ) return _nodes.text();
+        _num_nodes = _;
+        update();
+        return _view;
+
+    };
+
+    return _view;
+
+    function update () {
+
+        if ( _elements ) _elements.text( _num_elements.toLocaleString() );
+        if ( _nodes ) _nodes.text( _num_nodes.toLocaleString() );
+
+    }
+
+}
+
+function mesh_data_view$1 ( dataset ) {
+
+    var _selection;
+
+    var _header_text = 'Mesh Data';
+    var _selected_color = 'limegreen';
+
+    var _fields;
+    var _fort63;
+
+    var _view = function ( selection ) {
+
+        _selection = selection;
+
+        // Add the header
+        selection.append( 'div' )
+            .attr( 'class', 'header' )
+            .text( _header_text );
+
+        // Add the container for the data selectors
+        _fields = selection.append( 'div' )
+            .attr( 'class', 'mesh_data_fields item' );
+
+        // Add the fort.63 button
+        _fort63 = selection.append( 'div' )
+            .attr( 'class', 'button bordered' )
+            .text( 'Open fort.63' );
+
+        adcirc.button()
+            .file_picker( on_fort_63 )
+            ( _fort63 );
+
+        // Respond to events from the dataset
+        dataset.on( 'new_view', on_new_view );
+        dataset.on( 'view', on_view );
+
+        // Perform initial update
+        update();
+
+        return _view;
+
+    };
+
+    return dispatcher( _view );
+
+    function on_fort_63 ( file ) {
+
+        _fort63.remove();
+
+        var bar = _selection.append( 'div' ).attr( 'class', 'item' );
+        var progress = adcirc.progress()( bar.append( 'div' ) );
+
+        dataset
+            .on( 'progress', update_progress )
+            .on( 'finish', remove_progress )
+            .load_fort_63( file );
+
+        function update_progress ( event ) {
+
+            if ( event.task === 'map_timesteps' ) {
+
+                progress.progress( event.progress );
+
+            }
+
+        }
+
+        function remove_progress ( event ) {
+
+            if ( event.task === 'map_timesteps' ) {
+
+                bar.remove();
+                dataset
+                    .off( 'progress', update_progress )
+                    .off( 'finish', remove_progress );
+
+            }
+
+        }
+
+
+    }
+
+    function on_new_view ( event ) {
+
+        update();
+
+        var view_name = event.name;
+
+        dataset.view( view_name );
+
+
+    }
+
+    function on_view ( event ) {
+
+        update();
+
+        if ( _fields ) {
+
+            var view_name = event.name;
+
+            _fields.selectAll( '.data_field' )
+                .each( function () {
+
+                    var field = d3.select( this );
+
+                    if ( field.data()[ 0 ].name === view_name ) {
+
+                        field.selectAll( '.right' ).style( 'color', _selected_color );
+
+                    } else {
+
+                        d3.select( this ).selectAll( '.right' ).style( 'color', null );
+
+                    }
+
+                });
+        }
+
+    }
+
+    function pick_field () {
+
+        var picked_field = d3.select( this );
+
+        dataset.view( picked_field.data()[ 0 ].name );
+
+    }
+
+    function to_upper ( string ) {
+
+        return string.replace( /\b\w/g, function ( l ) { return l.toUpperCase() } );
+
+    }
+
+    function update () {
+
+        if ( _fields ) {
+
+            var selection = _fields.selectAll( '.data_field' )
+                .data( dataset.views() );
+
+            selection.exit().remove();
+
+            selection = selection.enter()
+                .append( 'div' )
+                .attr( 'class', 'two-col clickable data_field' )
+                .on( 'click', pick_field );
+
+            selection.append( 'div' )
+                .attr( 'class', 'left' )
+                .text( function ( d ) {
+                    return to_upper( d.name );
+                });
+
+            selection.append( 'div' )
+                .attr( 'class', 'right' )
+                .append( 'i' )
+                .attr( 'class', 'fa fa-fw fa-eye' );
+
+        }
 
     }
 
@@ -854,7 +1120,9 @@ function vertical_gradient () {
 
 }
 
-function display_view () {
+function display_view ( dataset ) {
+
+    var _dataset = dataset;
 
     var _gradient = vertical_gradient();
     var _current_view;
@@ -904,9 +1172,9 @@ function display_view () {
             .style( 'flex', '0 1 auto');
 
         // Set up buttons
-        var lock_button = icon_button( left_section.append( 'div' ), 'Lock Gradient', 'fa-lock' )
+        icon_button( left_section.append( 'div' ), 'Lock Gradient', 'fa-lock' )
             .on( 'click', toggle_gradient_lock );
-        var bounds_button = icon_button( left_section.append( 'div' ), 'Fit Data Bounds', 'fa-expand' )
+        icon_button( left_section.append( 'div' ), 'Fit Data Bounds', 'fa-expand' )
             .on( 'click', fit_bounds );
 
         // Set up gradient section
@@ -923,6 +1191,19 @@ function display_view () {
         _gradient( _grad );
 
         _gradient.on( 'gradient', on_gradient );
+
+        // Connect to the dataset
+        _dataset
+            .on( 'view', function ( event ) {
+
+                _view.view( event.view );
+
+            })
+            .on( 'timestep', function ( event ) {
+
+                _bounds = event.bounds;
+
+            });
 
         return _view;
 
@@ -1031,7 +1312,7 @@ function display_view () {
 
             _current_view.shader().gradient_stops( event.stops );
             _current_view.shader().gradient_colors( event.colors );
-            _view.dispatch({ type: 'render' });
+            _dataset.repaint();
 
         }
 
@@ -1043,6 +1324,8 @@ function display_view () {
             shader.gradient_stops(),
             shader.gradient_colors()
         );
+
+        _dataset.repaint();
 
     }
 
@@ -1112,7 +1395,9 @@ function display_view () {
 
 }
 
-function timeseries_view () {
+function timeseries_view$1 ( dataset ) {
+
+    var _selection;
 
     var _current_timestep;
     var _timestep_index;
@@ -1121,7 +1406,11 @@ function timeseries_view () {
     var _timestep_slider = slider()
         .height( 15 )
         .jumpable( false )
-        .needs_request( true );
+        .needs_request( true )
+        .on( 'request', function ( event ) {
+            console.log( event );
+            dataset.request_timestep( event.value );
+        });
 
     var _slider;
 
@@ -1133,6 +1422,10 @@ function timeseries_view () {
     var _initialized = false;
 
     var _view = function ( selection ) {
+
+        // Initially hidden
+        _selection = selection;
+        hide();
 
         // Set up the header
         var _header = selection.selectAll( '.timeseries-header' )
@@ -1176,7 +1469,6 @@ function timeseries_view () {
         _timestep_step = _step.append( 'div' ).attr( 'class', 'right' );
         _timestep_time = _time.append( 'div' ).attr( 'class', 'right' );
 
-
         // Set up slider
         _slider = selection.selectAll( '.timeseries-slider' )
             .data( [ {} ] );
@@ -1193,6 +1485,28 @@ function timeseries_view () {
 
         set_timestep( _current_timestep );
 
+        // Subscribe to events from the dataset
+        dataset
+            .on( 'has_timeseries', show )
+            .on( 'timestep', _view.timestep );
+
+        // Subscribe to keyboard events
+        d3.select( 'body' ).on( 'keydown', function () {
+
+            switch ( d3.event.key ) {
+
+                case 'ArrowRight':
+                    dataset.next_timestep();
+                    break;
+
+                case 'ArrowLeft':
+                    dataset.previous_timestep();
+                    break;
+
+            }
+
+        });
+
     };
 
     _view.timestep = function ( timestep ) {
@@ -1205,9 +1519,13 @@ function timeseries_view () {
 
     dispatcher( _view );
 
-    _timestep_slider.on( 'request', _view.dispatch );
-
     return _view;
+
+    function hide () {
+
+        if ( _selection ) _selection.style( 'display', 'none' );
+
+    }
 
     function set_timestep ( timestep ) {
 
@@ -1235,409 +1553,189 @@ function timeseries_view () {
 
     }
 
-}
+    function show () {
 
-// Build the UI
-var canvas = d3.select( '#canvas' );
-
-// Initialize the renderer
-var renderer = adcirc
-    .gl_renderer( canvas )
-    .clear_color( d3.color( '#666666' ) );
-
-// Initialize the UI
-var ui = adcirc
-    .ui( d3.select( 'body' ) );
-
-// The container for available mesh fields
-var fields;
-
-
-//// Sidebar sections
-
-// The sidebar itself
-var sidebar = d3.select( '#sidebar' );
-
-// Mesh Properties
-var mesh_properties_section = sidebar.append( 'div' ).attr( 'class', 'item' );
-
-// Mesh data
-var mesh_data_section= sidebar.append( 'div' ).attr( 'class', 'item' );
-
-// Timeseries things
-var timeseries_section = sidebar.append( 'div' ).attr( 'class', 'item' );
-var ts_selection;
-var ts_view = timeseries_view();
-
-// Display options
-var display_options_section = sidebar.append( 'div' ).attr( 'class', 'item' );
-var display_options = display_view()
-    .on( 'render', renderer.render );
-
-// Step 1 is to select a fort.14 file
-ui.fort14.file_picker( function ( file ) {
-
-    // Remove the opening message
-    d3.select( '#opening-message' ).remove();
-
-    // Remove the fort.14 button
-    d3.select( '#fort14-item' ).remove();
-
-    // Add load bar
-    var progress = adcirc.progress()
-        .height( 25 );
-
-    var selection = sidebar.append( 'div' )
-        .attr( 'class', 'item' );
-
-    progress( selection.append( 'div' ) );
-
-    // Create the dataset
-    var data = dataset( renderer.gl_context() );
-    var mesh = data.mesh();
-
-    // Connect events
-    data.on( 'progress', update_progress );
-    data.on( 'render', renderer.render );
-
-    data.once( 'ready', function () {
-
-        selection.remove();
-
-        data.off( 'progress', update_progress );
-
-        display_mesh( data );
-
-    });
-
-    data.on( 'has_view', function ( event ) {
-
-        renderer.add_view( event.view );
-
-    } );
-
-    ts_view.on( 'request', function ( event ) {
-
-        data.request_timestep( event.value );
-
-    });
-
-    // Zoom to the mesh once it's loaded
-    mesh.on( 'bounding_box', function () {
-
-        renderer.zoom_to( mesh, 200 );
-
-    });
-
-    // Load the file
-    data.load_fort_14( file );
-
-    // The progress bar update function
-    function update_progress ( event ) {
-
-        progress.progress( event.progress );
+        if ( _selection ) _selection.style( 'display', null );
 
     }
 
-});
+}
 
-// Step 2 is to display fort.14 information and provide options for loading more data
-function display_mesh ( data ) {
+function plotting_tools_view ( dataset ) {
 
-    // Get the mesh
-    var mesh = data.mesh();
+    var _header_text = 'Plotting Tools';
 
-    // Add mesh info header
-    mesh_properties_section.append( 'div' )
-        .attr( 'class', 'header' )
-        .text( 'Mesh Properties' );
+    var _plot_node_text = 'Plot Nodal Timeseries';
 
-    var mesh_info = mesh_properties_section
-        .attr( 'class', 'item' );
+    var _view = function ( selection ) {
 
-    // Add number of nodes
-    var node_info = mesh_info
-        .append( 'div' )
-        .attr( 'class', 'two-col' );
+        // Add the header
+        selection.append( 'div' )
+            .attr( 'class', 'header' )
+            .text( _header_text );
 
-    node_info.append( 'div' ).attr( 'class', 'left' ).text( 'Nodes:' );
-    node_info.append( 'div' ).attr( 'class', 'right' ).text( mesh.num_nodes().toLocaleString() );
+        // Add the tools section
+        var _tools = selection.append( 'div' )
+            .attr( 'class', 'plotting_tools item' );
 
-    var element_info = mesh_info
-        .append( 'div' )
-        .attr( 'class', 'two-col' );
+        // Picking tools
+        var _picker_container = _tools.append( 'div' ).attr( 'class', 'two-col' );
 
-    element_info.append( 'div' ).attr( 'class', 'left' ).text( 'Elements:' );
-    element_info.append( 'div' ).attr( 'class', 'right' ).text( mesh.num_elements().toLocaleString() );
+        _picker_container.append( 'div' ).attr( 'class', 'left' ).text( _plot_node_text );
+        _picker_container.append( 'div' ).attr( 'class', 'right clickable' )
+            .append( 'i' ).attr( 'class', 'fa fa-mouse-pointer' );
 
-    // Add the mesh datasets header
-    mesh_data_section
-        .append( 'div' )
-        .attr( 'class', 'header' )
-        .text( 'Mesh Data' );
+        return _view;
 
-    // Initialize display of mesh datasets
-    initialize_mesh_datasets( mesh_data_section.append( 'div' ).attr( 'class', 'item' ), data );
+    };
 
-    // Add the fort.63 and residuals buttons
-    var fort63_item = mesh_data_section.append( 'div' )
-        .attr( 'class', 'item' );
+    return _view;
 
-    var fort63 = fort63_item.append( 'div' )
-        .attr( 'class', 'button bordered' )
-        .text( 'Open fort.63' );
+}
 
-    adcirc.button().file_picker( function ( file ) {
+var canvas = d3.select( '#canvas' );
+var renderer = adcirc.gl_renderer( canvas ).clear_color( d3.color( '#666666' ) );
+var ui = adcirc.ui( d3.select( 'body' ) );
+var sidebar = d3.select( '#sidebar' );
 
-        // Remove the fort.63 button
-        fort63.remove();
+var data = dataset( renderer );
 
-        // Create load bar
-        var progress = adcirc.progress();
+var mesh_properties_section = sidebar.append( 'div' ).attr( 'class', 'item ' );
+var mesh_data_section = sidebar.append( 'div' ).attr( 'class', 'item' );
+var timeseries_section = sidebar.append( 'div' ).attr( 'class', 'item' );
+var plotting_section = sidebar.append( 'div' ).attr( 'class', 'item' );
+var display_options_section = sidebar.append( 'div' ).attr( 'class', 'item' );
 
-        // Add load bar
-        progress( fort63_item.append( 'div' ) );
+var mesh_properties_initialized = false;
+var mesh_data_initialized = false;
+var timeseries_initialized = false;
+var plotting_initialized = false;
+var display_options_initialized = false;
 
-        // Respond to events
-        data.on( 'progress', update_progress );
+var mesh_properties_view$$1 = mesh_properties_view$1();
+var mesh_data_view$$1 = mesh_data_view$1( data );
+var timeseries_view$$1 = timeseries_view$1( data );
+var plotting_view = plotting_tools_view( data );
+var display_options_view = display_view( data );
 
-        data.once( 'finish', function ( event ) {
+connect_dataset( data );
+ui.fort14.file_picker( initialize );
 
-            data.off( 'progress', update_progress );
 
-            fort63_item.remove();
+function connect_dataset ( dataset$$1 ) {
 
-        });
+    dataset$$1
+        .on( 'render', renderer.render )
+        .on( 'view', on_view )
+        .on( 'timestep', on_timestep );
 
-        data.once( 'ready', function () {
+    dataset$$1
+        .on( 'finish', function ( event ) {
 
-            show_timeseries_controls( timeseries_section );
+            switch ( event.task ) {
 
-        });
+                case 'timeseries_prep':
 
-        data.on( 'timestep', function ( event ) {
+                    if ( !plotting_initialized ) {
+                        plotting_view( plotting_section );
+                        plotting_initialized = true;
+                    }
 
-            ts_view.timestep( event );
-            display_options.bounds( event.bounds );
-
-        });
-
-        // Repond to keyboard events
-        d3.select( 'body' ).on( 'keydown', function () {
-
-            switch ( d3.event.key ) {
-
-                case 'ArrowRight':
-                    data.next_timestep();
-                    break;
-
-                case 'ArrowLeft':
-                    data.previous_timestep();
                     break;
 
             }
 
         });
 
-        data.load_fort_63( file );
+}
 
-        // Progress bar update function
-        function update_progress ( event ) {
+function initialize ( file ) {
+
+    d3.select( '#opening-message' ).remove();
+    d3.select( '#fort14-item' ).remove();
+
+    var progress_bar = sidebar.append( 'div' ).attr( 'class', 'item' );
+    var progress = adcirc.progress()( progress_bar.append( 'div' ) );
+
+    data
+        .on( 'progress', update_progress )
+        .on( 'mesh_loaded', on_mesh_loaded );
+
+    data.mesh().on( 'bounding_box', function () {
+
+        renderer.zoom_to( data.mesh(), 200 );
+
+    });
+
+    data.load_fort_14( file );
+
+    function on_mesh_loaded () {
+
+        progress_bar.remove();
+
+        display();
+
+        data.off( 'progress', update_progress )
+            .off( 'mesh_loaded', on_mesh_loaded )
+            .view( 'depth' );
+
+    }
+
+    function update_progress ( event ) {
+
+        if ( event.task === 'load_mesh' ) {
 
             progress.progress( event.progress );
 
         }
 
-    })( fort63 );
-
-    // Add the display options
-    display_options( display_options_section );
+    }
 
 }
 
-function initialize_mesh_datasets ( selection, data ) {
+function display () {
 
-    fields = selection;
+    if ( !mesh_properties_initialized ) {
 
-    data.on( 'view', function ( event ) {
+        mesh_properties_view$$1.num_nodes( data.mesh().num_nodes() );
+        mesh_properties_view$$1.num_elements( data.mesh().num_elements() );
 
-        // Tell the renderer to render the view
-        renderer.set_view( event.view );
-        renderer.render();
+        mesh_properties_view$$1( mesh_properties_section );
+        mesh_properties_initialized = true;
 
-        // Tell the display options to show the gradient
-        display_options.view( event.view );
+    }
 
-    });
+    if ( !mesh_data_initialized ) {
 
-    data.on( 'view_created', function ( event ) {
+        mesh_data_view$$1( mesh_data_section );
+        mesh_data_initialized = true;
 
-        // Add the field to the list of mesh data
-        var field = new_field( event.name );
+    }
 
-        // When depth is loaded for the first time, display it
-        if ( event.name == 'depth' ) {
+    if ( !timeseries_initialized ) {
 
-            pick_field( 'depth' );
-            data.view( 'depth' );
+        timeseries_view$$1( timeseries_section );
+        timeseries_initialized = true;
 
-        }
+    }
 
-        // Respond to field clicks
-        field.on( 'click', function ( d ) {
+    if ( !display_options_initialized ) {
 
-            pick_field( d );
-            data.view( d );
+        display_options_view( display_options_section );
+        display_options_initialized = true;
 
-        } );
-
-    });
+    }
 
 }
 
-function show_timeseries_controls ( sidebar ) {
-
-    if ( !ts_selection ) ts_selection = sidebar.append( 'div' ).attr( 'class', 'item' );
-    ts_view( ts_selection );
+function on_timestep ( event ) {
 
 }
 
-function new_field ( name ) {
+function on_view ( event ) {
 
-    // Full size clickable item
-    var field = fields.append( 'div' )
-        .attr( 'class', 'two-col clickable' )
-        .data( [ name ] );
-
-    // Left column has field name
-    field.append( 'div' ).attr( 'class', 'left' ).text( upper( name ) );
-
-    // Right column has eyeball
-    field.append( 'div' ).attr( 'class', 'right' )
-        .append( 'i' ).attr( 'class', 'fa fa-fw fa-eye' );
-
-    return field;
+    renderer.set_view( event.view );
 
 }
-
-function pick_field ( name ) {
-
-    fields.selectAll( '.clickable' ).each( function ( d ) {
-
-        var field = d3.select( this );
-
-        if ( d === name ) {
-
-            field.selectAll( '.right' ).style( 'color', 'limegreen' );
-
-
-        } else {
-
-            field.selectAll( '.right' ).style( 'color', null );
-
-        }
-
-    });
-
-}
-
-function upper ( string ) {
-
-    return string.replace( /\b\w/g, function ( l ) { return l.toUpperCase() } );
-
-}
-
-// var elemental_values = d3.select( '#elemental_values' );
-// var nodal_values = d3.select( '#nodal_values' );
-// var num_nodes = d3.select( '#num-nodes' );
-// var num_elements = d3.select( '#num-elements' );
-// var bounding_box = d3.select( '#bounding-box' );
-//
-// // Set up data views
-// var initialized = false;
-// var view_mesh = mesh_view()
-//     .elemental_values( elemental_values )
-//     .nodal_values( nodal_values )
-//     .num_nodes( num_nodes )
-//     .num_elements( num_elements )
-//     .bounding_box( bounding_box );
-//
-// // There'll only be a single dataset to begin with
-// var data = dataset( renderer.gl_context() );
-// var mesh = data.mesh();
-//
-// // Set up file pickers
-// ui.fort14.file_picker( data.load_fort_14 );
-// ui.fort63.file_picker( data.load_fort_63 );
-// ui.residuals.file_picker( data.load_residuals );
-//
-// // Set up gradient slider
-// ui.colorbar.on( 'gradient', data.gradient );
-//
-// // Connect the views to the data
-// view_mesh( data.mesh() );
-//
-// // Respond to events from the mesh
-// mesh.on( 'bounding_box', function () {
-//
-//     if ( !initialized ) {
-//
-//         renderer.zoom_to( mesh, 200 );
-//         initialized = true;
-//
-//     }
-//
-// });
-//
-// // Respond to events from the dataset
-// data.on( 'has_view', function ( event ) {
-//
-//     renderer.add_view( event.view );
-//
-// });
-//
-// data.on( 'progress', function ( event ) {
-//
-//     ui.progress.progress( event.progress );
-//
-// });
-//
-// data.on( 'gradient', function ( event ) {
-//
-//     ui.colorbar.stops( event.values, event.colors );
-//
-// });
-//
-// data.on( 'render', renderer.render );
-//
-// // Respond to events from views
-// view_mesh.on( 'nodal_value', function ( event ) {
-//
-//     data.view( event.nodal_value );
-//
-// });
-//
-// view_mesh.on( 'elemental_value', function ( event ) {
-//
-//     data.view( event.elemental_value );
-//
-// });
-//
-// // Repond to keyboard events
-// d3.select( 'body' ).on( 'keydown', function () {
-//
-//     switch ( d3.event.key ) {
-//
-//         case 'ArrowRight':
-//             data.next_timestep();
-//             break;
-//
-//         case 'ArrowLeft':
-//             data.previous_timestep();
-//             break;
-//
-//     }
-//
-// });
 
 })));

@@ -1,7 +1,9 @@
 import { dispatcher } from '../../../../adcirc-events/index'
 import { gradient } from '../../../../adcirc-ui/index'
 
-function display_view () {
+function display_view ( dataset ) {
+
+    var _dataset = dataset;
 
     var _gradient = gradient();
     var _current_view;
@@ -51,9 +53,9 @@ function display_view () {
             .style( 'flex', '0 1 auto');
 
         // Set up buttons
-        var lock_button = icon_button( left_section.append( 'div' ), 'Lock Gradient', 'fa-lock' )
+        icon_button( left_section.append( 'div' ), 'Lock Gradient', 'fa-lock' )
             .on( 'click', toggle_gradient_lock );
-        var bounds_button = icon_button( left_section.append( 'div' ), 'Fit Data Bounds', 'fa-expand' )
+        icon_button( left_section.append( 'div' ), 'Fit Data Bounds', 'fa-expand' )
             .on( 'click', fit_bounds );
 
         // Set up gradient section
@@ -70,6 +72,19 @@ function display_view () {
         _gradient( _grad );
 
         _gradient.on( 'gradient', on_gradient );
+
+        // Connect to the dataset
+        _dataset
+            .on( 'view', function ( event ) {
+
+                _view.view( event.view );
+
+            })
+            .on( 'timestep', function ( event ) {
+
+                _bounds = event.bounds;
+
+            });
 
         return _view;
 
@@ -178,7 +193,7 @@ function display_view () {
 
             _current_view.shader().gradient_stops( event.stops );
             _current_view.shader().gradient_colors( event.colors );
-            _view.dispatch({ type: 'render' });
+            _dataset.repaint();
 
         }
 
@@ -190,6 +205,8 @@ function display_view () {
             shader.gradient_stops(),
             shader.gradient_colors()
         );
+
+        _dataset.repaint();
 
     }
 

@@ -145,7 +145,7 @@ function display_mesh ( data ) {
     // Initialize display of mesh datasets
     initialize_mesh_datasets( mesh_data_section.append( 'div' ).attr( 'class', 'item' ), data );
 
-    // Add the fort.63 and residuals buttons
+    // Add the fort.63 button
     var fort63_item = mesh_data_section.append( 'div' )
         .attr( 'class', 'item' );
 
@@ -236,7 +236,7 @@ function initialize_mesh_datasets ( selection, data ) {
 
     });
 
-    data.on( 'view_created', function ( event ) {
+    data.on( 'new_view', function ( event ) {
 
         // Add the field to the list of mesh data
         var field = new_field( event.name );
@@ -263,8 +263,8 @@ function initialize_mesh_datasets ( selection, data ) {
 
 function show_timeseries_controls ( sidebar ) {
 
-    if ( !ts_selection ) ts_selection = sidebar.append( 'div' ).attr( 'class', 'item' );
-    ts_view( ts_selection );
+    // if ( !ts_selection ) ts_selection = sidebar.append( 'div' ).attr( 'class', 'item' );
+    ts_view( sidebar );
 
 }
 

@@ -1,7 +1,9 @@
 import { dispatcher } from '../../../../adcirc-events/index'
 import { slider } from '../../../../adcirc-ui/index'
 
-function timeseries_view () {
+function timeseries_view ( dataset ) {
+
+    var _selection;
 
     var _current_timestep;
     var _timestep_index;
@@ -10,7 +12,11 @@ function timeseries_view () {
     var _timestep_slider = slider()
         .height( 15 )
         .jumpable( false )
-        .needs_request( true );
+        .needs_request( true )
+        .on( 'request', function ( event ) {
+            console.log( event );
+            dataset.request_timestep( event.value );
+        });
 
     var _slider;
 
@@ -22,6 +28,10 @@ function timeseries_view () {
     var _initialized = false;
 
     var _view = function ( selection ) {
+
+        // Initially hidden
+        _selection = selection;
+        hide();
 
         // Set up the header
         var _header = selection.selectAll( '.timeseries-header' )
@@ -65,7 +75,6 @@ function timeseries_view () {
         _timestep_step = _step.append( 'div' ).attr( 'class', 'right' );
         _timestep_time = _time.append( 'div' ).attr( 'class', 'right' );
 
-
         // Set up slider
         _slider = selection.selectAll( '.timeseries-slider' )
             .data( [ {} ] );
@@ -82,6 +91,28 @@ function timeseries_view () {
 
         set_timestep( _current_timestep );
 
+        // Subscribe to events from the dataset
+        dataset
+            .on( 'has_timeseries', show )
+            .on( 'timestep', _view.timestep );
+
+        // Subscribe to keyboard events
+        d3.select( 'body' ).on( 'keydown', function () {
+
+            switch ( d3.event.key ) {
+
+                case 'ArrowRight':
+                    dataset.next_timestep();
+                    break;
+
+                case 'ArrowLeft':
+                    dataset.previous_timestep();
+                    break;
+
+            }
+
+        })
+
     };
 
     _view.timestep = function ( timestep ) {
@@ -94,9 +125,13 @@ function timeseries_view () {
 
     dispatcher( _view );
 
-    _timestep_slider.on( 'request', _view.dispatch );
-
     return _view;
+
+    function hide () {
+
+        if ( _selection ) _selection.style( 'display', 'none' );
+
+    }
 
     function set_timestep ( timestep ) {
 
@@ -121,6 +156,12 @@ function timeseries_view () {
             if ( _timestep_time ) _timestep_time.text( _current_timestep.time.toLocaleString() );
 
         }
+
+    }
+
+    function show () {
+
+        if ( _selection ) _selection.style( 'display', null );
 
     }
 

@@ -1,6 +1,9 @@
 import { dispatcher } from '../../../../adcirc-events/index'
 
-function dataset ( gl ) {
+function dataset ( renderer ) {
+
+    var _renderer = renderer;
+    var _gl = _renderer.gl_context();
 
     var _dataset = dispatcher();
     var _views = [];
@@ -11,12 +14,6 @@ function dataset ( gl ) {
     var _current_view;
     var _timestep_index = 0;
     var _timeseries_data = [];
-
-    _dataset.mesh = function () {
-
-        return _mesh;
-
-    };
 
 
     _dataset.load_fort_14 = function ( file ) {
@@ -33,11 +30,10 @@ function dataset ( gl ) {
                 _mesh.elements( event.elements );
 
             })
-            .on( 'ready', _dataset.dispatch )
             .on( 'ready', function () {
 
                 // Create the geometry
-                _geometry = adcirc.geometry( gl, _mesh );
+                _geometry = adcirc.geometry( _gl, _mesh );
 
                 // Get the depth bounds
                 var bounds = _mesh.bounds( 'depth' );
@@ -46,8 +42,13 @@ function dataset ( gl ) {
                 var shader = depth_shader( bounds[0], bounds[1] );
 
                 // Add depth as a new view
-                var view = adcirc.view( gl, _geometry, shader ).nodal_value( 'depth' );
+                var view = adcirc.view( _gl, _geometry, shader ).nodal_value( 'depth' );
                 add_view( 'depth', view );
+
+                // Tell everyone the mesh is loaded
+                _dataset.dispatch({
+                    type: 'mesh_loaded'
+                });
 
             })
             .read( file );
@@ -73,7 +74,7 @@ function dataset ( gl ) {
                 var shader = elevation_shader( bounds[0], bounds[1] );
 
                 // Create the view
-                var view = adcirc.view( gl, _geometry, shader );
+                var view = adcirc.view( _gl, _geometry, shader );
                 add_view( 'elevation timeseries', view );
 
 
@@ -83,6 +84,10 @@ function dataset ( gl ) {
                 _timestep_index = event.timestep.index();
 
                 _mesh.nodal_value( 'elevation timeseries', event.timestep.data() );
+
+                _dataset.dispatch({
+                    type: 'has_timeseries'
+                });
 
                 _dataset.dispatch({
                     type: 'timestep',
@@ -96,12 +101,25 @@ function dataset ( gl ) {
                 request_render();
 
             })
+            .on( 'start', _dataset.dispatch )
             .on( 'finish', _dataset.dispatch )
             .open( file );
 
         _timeseries_data.push( f63 );
 
         return _dataset;
+
+    };
+
+    _dataset.mesh = function () {
+
+        return _mesh;
+
+    };
+
+    _dataset.repaint = function () {
+
+        _renderer.render();
 
     };
 
@@ -150,14 +168,23 @@ function dataset ( gl ) {
 
                 _dataset.dispatch({
                     type: 'view',
+                    name: name,
                     view: view.view
                 });
+
+                _dataset.repaint();
 
                 return;
 
             }
 
         }
+
+    };
+
+    _dataset.views = function () {
+
+        return _views;
 
     };
 
@@ -171,7 +198,7 @@ function dataset ( gl ) {
         });
 
         _dataset.dispatch({
-            type: 'view_created',
+            type: 'new_view',
             name: name,
             view: view
         });
@@ -180,7 +207,7 @@ function dataset ( gl ) {
 
     function depth_shader ( lower_bound, upper_bound ) {
 
-        var shader = adcirc.gradient_shader( gl, 6 );
+        var shader = adcirc.gradient_shader( _gl, 6 );
 
         shader.gradient_stops([ lower_bound, -1.75, -0.5, 0.0, 0.5, upper_bound ]);
         shader.gradient_colors([
@@ -198,13 +225,17 @@ function dataset ( gl ) {
 
     function elevation_shader ( lower_bound, upper_bound ) {
 
-        var shader = adcirc.gradient_shader ( gl, 3 );
+        var shader = adcirc.gradient_shader ( _gl, 3 );
 
-        shader.gradient_stops([ lower_bound, 0.0, upper_bound ]);
+        shader.gradient_stops([
+            lower_bound,
+            0.0,
+            upper_bound
+        ]);
         shader.gradient_colors([
-            d3.color( 'steelblue' ).rgb(),
             d3.color( 'white' ).rgb(),
-            d3.color( 'lightsteelblue' ).rgb()
+            d3.color( 'lightsteelblue' ).rgb(),
+            d3.color( 'darkblue' ).rgb()
         ]);
 
         return shader;
