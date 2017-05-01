@@ -15,6 +15,15 @@ function dataset ( renderer ) {
     var _timestep_index = 0;
     var _timeseries_data = [];
 
+    _dataset.find_node = function ( coordinates ) {
+
+        if ( _mesh ) {
+
+            return _mesh.find_node( coordinates );
+
+        }
+
+    };
 
     _dataset.load_fort_14 = function ( file ) {
 
@@ -154,6 +163,14 @@ function dataset ( renderer ) {
 
     };
 
+    _dataset.timeseries = function ( node_number, callback ) {
+
+        if ( _timeseries_data.length > 0 ) {
+            _timeseries_data[ 0 ].timeseries( node_number, callback );
+        }
+
+    };
+
     _dataset.view = function ( name ) {
 
         for ( var i=0; i<_views.length; ++i ) {
@@ -235,7 +252,7 @@ function dataset ( renderer ) {
         shader.gradient_colors([
             d3.color( 'white' ).rgb(),
             d3.color( 'lightsteelblue' ).rgb(),
-            d3.color( 'darkblue' ).rgb()
+            d3.color( 'steelblue' ).rgb()
         ]);
 
         return shader;

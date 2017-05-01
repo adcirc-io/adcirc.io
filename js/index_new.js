@@ -31,8 +31,8 @@ var plotting_view = PlottingView( data );
 var display_options_view = DisplayView( data );
 
 connect_dataset( data );
+connect_mouse_events();
 ui.fort14.file_picker( initialize );
-
 
 function connect_dataset ( dataset ) {
 
@@ -42,7 +42,7 @@ function connect_dataset ( dataset ) {
         .on( 'timestep', on_timestep );
 
     dataset
-        .on( 'finish', function ( event ) {
+        .on( 'start', function ( event ) {
 
             switch ( event.task ) {
 
@@ -58,6 +58,13 @@ function connect_dataset ( dataset ) {
             }
 
         });
+
+}
+
+function connect_mouse_events () {
+
+    renderer.on( 'click', plotting_view.on_click );
+    renderer.on( 'projection', plotting_view.on_projection );
 
 }
 
