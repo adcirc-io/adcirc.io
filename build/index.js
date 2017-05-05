@@ -97,8 +97,7 @@ function dispatcher ( object ) {
 
         if ( listenerArray !== undefined ) {
 
-            if ( event.target === undefined )
-                event.target = object;
+            event.target = object;
 
             length = listenerArray.length;
 
@@ -118,8 +117,7 @@ function dispatcher ( object ) {
 
         if ( oneoffArray !== undefined ) {
 
-            if ( event.target === undefined )
-                event.target = object;
+            event.target = object;
 
             length = oneoffArray.length;
 
@@ -326,6 +324,15 @@ function dataset ( renderer ) {
 
             if ( view.name === name ) {
 
+                if ( view.name === 'depth' ) {
+
+                    _dataset.dispatch({
+                        type: 'bounds',
+                        bounds: _mesh.bounds()
+                    });
+
+                }
+
                 _current_view = name;
                 _mesh.nodal_value( name );
                 view.view.nodal_value( name );
@@ -396,9 +403,10 @@ function dataset ( renderer ) {
             0.0,
             upper_bound
         ]);
+
         shader.gradient_colors([
+            d3.color( 'orangered' ).rgb(),
             d3.color( 'white' ).rgb(),
-            d3.color( 'lightsteelblue' ).rgb(),
             d3.color( 'steelblue' ).rgb()
         ]);
 
@@ -582,33 +590,64 @@ function mesh_data_view$1 ( dataset ) {
 
         update();
 
-        if ( _fields ) {
+        set_selected( event.name );
 
-            var view_name = event.name;
+        // if ( _fields ) {
+        //
+        //     var view_name = event.name;
+        //
+        //     _fields.selectAll( '.data_field' )
+        //         .each( function () {
+        //
+        //             var field = d3.select( this );
+        //
+        //             if ( field.data()[ 0 ].name === view_name ) {
+        //
+        //                 field.selectAll( '.right' ).style( 'color', _selected_color );
+        //
+        //             } else {
+        //
+        //                 d3.select( this ).selectAll( '.right' ).style( 'color', null );
+        //
+        //             }
+        //
+        //         });
+        // }
 
-            _fields.selectAll( '.data_field' )
-                .each( function () {
+    }
 
-                    var field = d3.select( this );
+    function set_selected ( field ) {
 
-                    if ( field.data()[ 0 ].name === view_name ) {
+        _fields.selectAll( '.data_field' )
+            .each( function () {
 
-                        field.selectAll( '.right' ).style( 'color', _selected_color );
+                var f = d3.select( this );
 
-                    } else {
+                if ( f.data()[ 0 ].name === field ) {
 
-                        d3.select( this ).selectAll( '.right' ).style( 'color', null );
+                    f.classed( 'on', true )
+                        .style( 'background-color', '#666666' )
+                        .style( 'color', 'white' );
 
-                    }
+                } else {
 
-                });
-        }
+                    f.classed( 'on', false )
+                        .style( 'background-color', 'white' )
+                        .style( 'color', null )
+                        .style( 'border', '1px solid #f8f8f8' );
+
+                }
+
+            });
 
     }
 
     function pick_field () {
 
         var picked_field = d3.select( this );
+
+        picked_field.style( 'background-color', '#666666' )
+            .style( 'color', 'white' );
 
         dataset.view( picked_field.data()[ 0 ].name );
 
@@ -632,6 +671,8 @@ function mesh_data_view$1 ( dataset ) {
             selection = selection.enter()
                 .append( 'div' )
                 .attr( 'class', 'two-col clickable data_field' )
+                .style( 'user-select', 'none' )
+                .style( 'border', '1px solid #f8f8f8' )
                 .on( 'click', pick_field );
 
             selection.append( 'div' )
@@ -644,6 +685,22 @@ function mesh_data_view$1 ( dataset ) {
                 .attr( 'class', 'right' )
                 .append( 'i' )
                 .attr( 'class', 'fa fa-fw fa-eye' );
+
+            selection.on( 'mouseover', function () {
+
+                var button = d3.select( this );
+                if ( !button.classed( 'on' ) )
+                    d3.select( this )
+                        .style( 'border', '1px solid lightgray' );
+
+            }).on( 'mouseout', function () {
+
+                var button = d3.select( this );
+                if ( !button.classed( 'on' ) )
+                    d3.select( this )
+                        .style( 'border', '1px solid #f8f8f8' );
+
+            });
 
         }
 
@@ -1220,6 +1277,11 @@ function display_view ( dataset ) {
 
                 _bounds = event.bounds;
 
+            })
+            .on( 'bounds', function ( event ) {
+
+                _bounds = event.bounds;
+
             });
 
         return _view;
@@ -1248,6 +1310,12 @@ function display_view ( dataset ) {
 
             _save_shader = _current_view.shader();
             _current_view.shader( _lock_shader );
+
+        }
+
+        if ( !_locked && _bounds ) {
+
+            fit_bounds();
 
         }
 
@@ -1590,6 +1658,9 @@ function plotting_tools_view ( dataset ) {
     var _node_coordinates;
     var _offset_y;
 
+    var _picking_loaded = false;
+    var _picking = false;
+
     var _plotting_area;
     var _chart;
     var _line;
@@ -1611,6 +1682,7 @@ function plotting_tools_view ( dataset ) {
 
         dataset.on( 'progress', update_progress );
         dataset.on( 'finish', remove_progress );
+        dataset.on( 'timestep', set_timestep );
 
         return _view;
 
@@ -1639,11 +1711,15 @@ function plotting_tools_view ( dataset ) {
                     .attr( 'class', 'plotting_tools item' );
 
                 // Picking tools
-                var _picker_container = _tools.append( 'div' ).attr( 'class', 'two-col' );
+                var _picker_container = _tools.append( 'div' ).attr( 'class', 'two-col clickable' );
 
                 _picker_container.append( 'div' ).attr( 'class', 'left' ).text( _plot_node_text );
-                _picker_container.append( 'div' ).attr( 'class', 'right clickable' )
+                _picker_container.append( 'div' ).attr( 'class', 'right' )
                     .append( 'i' ).attr( 'class', 'fa fa-mouse-pointer' );
+
+                _picker_container.on( 'click', toggle_button );
+
+                _picking_loaded = true;
 
             }
 
@@ -1653,13 +1729,17 @@ function plotting_tools_view ( dataset ) {
 
     _view.on_click = function ( event ) {
 
-        var click_coordinates = event.coordinates;
-        var node = dataset.find_node( click_coordinates );
-        _node_coordinates = node.coordinates;
-        _offset_y = event.offset_y;
-        update_circle();
+        if ( _picking_loaded && _picking ) {
 
-        dataset.timeseries( node.node_number, plot_timeseries );
+            var click_coordinates = event.coordinates;
+            var node = dataset.find_node(click_coordinates);
+            _node_coordinates = node.coordinates;
+            _offset_y = event.offset_y;
+            update_circle();
+
+            dataset.timeseries(node.node_number, plot_timeseries);
+
+        }
 
     };
 
@@ -1674,7 +1754,7 @@ function plotting_tools_view ( dataset ) {
 
     function update_circle () {
 
-        if ( _transform && _node_coordinates && _circle ) {
+        if ( _picking && _transform && _node_coordinates && _circle ) {
 
             var added = [ _node_coordinates[ 0 ], _offset_y - _node_coordinates[ 1 ] ];
             var transformed = _transform.apply( added );
@@ -1690,12 +1770,38 @@ function plotting_tools_view ( dataset ) {
     function hide_plot () {
 
         if ( _plotting_area ) _plotting_area.style( 'display', 'none' );
+        if ( _circle ) _circle.attr( 'visibility', 'hidden' );
 
     }
 
     function show_plot () {
 
         if ( _plotting_area ) _plotting_area.style( 'display', null );
+
+    }
+
+    function set_timestep ( event ) {
+
+        if ( _chart && _plotting_area ) {
+
+            var x_scale = _chart.x_scale();
+
+            var selection = _plotting_area
+                .select( 'svg' ).select( 'g' ).selectAll( '.tsline' ).data( [ {} ] );
+
+            selection = selection.enter()
+                .append( 'line' )
+                .attr( 'class', 'tsline' )
+                .merge( selection );
+
+            selection.attr( 'x1', x_scale( event.index ) )
+                .attr( 'x2', x_scale( event.index ) )
+                .attr( 'y1', 0 )
+                .attr( 'y2', 180 )
+                .attr( 'stroke', '#666666' )
+                .attr( 'stroke-width', '1px' );
+
+        }
 
     }
 
@@ -1745,17 +1851,43 @@ function plotting_tools_view ( dataset ) {
         function show_value ( d ) {
 
             var index = d[0];
-            var value = d[1] === -99999 ? 'Dry' : d[1].toLocaleString();
-            _legend.item( 'Dataset ' + index + ': ' + value, _line );
+            _legend.item( 'Node ' + node_number + ', Dataset ' + index, _line );
 
             if ( d[1] !== -99999 ) {
 
-                d3.select( this )
+                var circle = d3.select( this )
                     .attr( 'r', 5 )
                     .attr( 'stroke', _line.attr( 'stroke' ) )
                     .attr( 'stroke-width', _line.attr( 'stroke-width' ) )
                     .attr( 'fill', 'white' )
-                    .attr( 'fill-opacity', 0.5 );
+                    .attr( 'fill-opacity', 0.5 )
+                    .attr( 'visibility', null );
+
+                var label = d3.select( this.parentNode )
+                    .selectAll( '.dataval' ).data( [ d ] );
+
+                label = label
+                    .enter().append( 'text' )
+                    .attr( 'class', 'dataval' )
+                    .merge( label );
+
+                label.attr( 'x', ( +circle.attr( 'cx' ) + 15 ) )
+                    .attr( 'y', circle.attr( 'cy' ) )
+                    .style( 'font-family', 'sans-serif' )
+                    .style( 'font-size', '14px' )
+                    .style( 'font-weight', 'bold' )
+                    .style( 'alignment-baseline', 'middle' )
+                    .attr( 'visibility', null )
+                    .text( d[1].toLocaleString() + 'm' );
+            } else {
+
+                d3.select( this )
+                    .attr( 'visibility', 'hidden' );
+
+                d3.select( this.parentNode )
+                    .selectAll( '.dataval' )
+                    .attr( 'visibility', 'hidden' );
+
             }
 
             _plotting_area.call( _chart );
@@ -1766,6 +1898,10 @@ function plotting_tools_view ( dataset ) {
 
             _legend.item( 'Elevation Timeseries for Node ' + node_number, _line );
             _plotting_area.call( _chart );
+
+            d3.select( this.parentNode )
+                .selectAll( '.dataval' )
+                .attr( 'visibility', 'hidden' );
 
         }
 
@@ -1811,6 +1947,33 @@ function plotting_tools_view ( dataset ) {
         hide_plot();
 
     }
+
+    function toggle_button () {
+
+        if ( _picking_loaded ) {
+
+            var button = d3.select( this );
+
+            if ( !_picking ) {
+
+                button.style( 'background-color', '#666666' )
+                    .style( 'color', 'white' );
+                _picking = true;
+
+            } else {
+
+                button.style( 'background-color', null )
+                    .style( 'color', null );
+                _picking = false;
+
+                hide_plot();
+
+            }
+
+        }
+
+    }
+
 
 }
 

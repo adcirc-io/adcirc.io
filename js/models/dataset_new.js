@@ -179,6 +179,15 @@ function dataset ( renderer ) {
 
             if ( view.name === name ) {
 
+                if ( view.name === 'depth' ) {
+
+                    _dataset.dispatch({
+                        type: 'bounds',
+                        bounds: _mesh.bounds()
+                    });
+
+                }
+
                 _current_view = name;
                 _mesh.nodal_value( name );
                 view.view.nodal_value( name );
@@ -249,9 +258,10 @@ function dataset ( renderer ) {
             0.0,
             upper_bound
         ]);
+
         shader.gradient_colors([
+            d3.color( 'orangered' ).rgb(),
             d3.color( 'white' ).rgb(),
-            d3.color( 'lightsteelblue' ).rgb(),
             d3.color( 'steelblue' ).rgb()
         ]);
 

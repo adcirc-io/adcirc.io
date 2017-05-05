@@ -84,6 +84,11 @@ function display_view ( dataset ) {
 
                 _bounds = event.bounds;
 
+            })
+            .on( 'bounds', function ( event ) {
+
+                _bounds = event.bounds;
+
             });
 
         return _view;
@@ -112,6 +117,12 @@ function display_view ( dataset ) {
 
             _save_shader = _current_view.shader();
             _current_view.shader( _lock_shader );
+
+        }
+
+        if ( !_locked && _bounds ) {
+
+            fit_bounds();
 
         }
 

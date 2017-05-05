@@ -98,33 +98,64 @@ function mesh_data_view ( dataset ) {
 
         update();
 
-        if ( _fields ) {
+        set_selected( event.name );
 
-            var view_name = event.name;
+        // if ( _fields ) {
+        //
+        //     var view_name = event.name;
+        //
+        //     _fields.selectAll( '.data_field' )
+        //         .each( function () {
+        //
+        //             var field = d3.select( this );
+        //
+        //             if ( field.data()[ 0 ].name === view_name ) {
+        //
+        //                 field.selectAll( '.right' ).style( 'color', _selected_color );
+        //
+        //             } else {
+        //
+        //                 d3.select( this ).selectAll( '.right' ).style( 'color', null );
+        //
+        //             }
+        //
+        //         });
+        // }
 
-            _fields.selectAll( '.data_field' )
-                .each( function () {
+    }
 
-                    var field = d3.select( this );
+    function set_selected ( field ) {
 
-                    if ( field.data()[ 0 ].name === view_name ) {
+        _fields.selectAll( '.data_field' )
+            .each( function () {
 
-                        field.selectAll( '.right' ).style( 'color', _selected_color );
+                var f = d3.select( this );
 
-                    } else {
+                if ( f.data()[ 0 ].name === field ) {
 
-                        d3.select( this ).selectAll( '.right' ).style( 'color', null );
+                    f.classed( 'on', true )
+                        .style( 'background-color', '#666666' )
+                        .style( 'color', 'white' );
 
-                    }
+                } else {
 
-                });
-        }
+                    f.classed( 'on', false )
+                        .style( 'background-color', 'white' )
+                        .style( 'color', null )
+                        .style( 'border', '1px solid #f8f8f8' );
+
+                }
+
+            })
 
     }
 
     function pick_field () {
 
         var picked_field = d3.select( this );
+
+        picked_field.style( 'background-color', '#666666' )
+            .style( 'color', 'white' );
 
         dataset.view( picked_field.data()[ 0 ].name );
 
@@ -148,6 +179,8 @@ function mesh_data_view ( dataset ) {
             selection = selection.enter()
                 .append( 'div' )
                 .attr( 'class', 'two-col clickable data_field' )
+                .style( 'user-select', 'none' )
+                .style( 'border', '1px solid #f8f8f8' )
                 .on( 'click', pick_field );
 
             selection.append( 'div' )
@@ -160,6 +193,22 @@ function mesh_data_view ( dataset ) {
                 .attr( 'class', 'right' )
                 .append( 'i' )
                 .attr( 'class', 'fa fa-fw fa-eye' );
+
+            selection.on( 'mouseover', function () {
+
+                var button = d3.select( this );
+                if ( !button.classed( 'on' ) )
+                    d3.select( this )
+                        .style( 'border', '1px solid lightgray' );
+
+            }).on( 'mouseout', function () {
+
+                var button = d3.select( this );
+                if ( !button.classed( 'on' ) )
+                    d3.select( this )
+                        .style( 'border', '1px solid #f8f8f8' );
+
+            });
 
         }
 

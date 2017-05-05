@@ -11,6 +11,9 @@ function plotting_tools_view ( dataset ) {
     var _node_coordinates;
     var _offset_y;
 
+    var _picking_loaded = false;
+    var _picking = false;
+
     var _plotting_area;
     var _chart;
     var _line;
@@ -32,6 +35,7 @@ function plotting_tools_view ( dataset ) {
 
         dataset.on( 'progress', update_progress );
         dataset.on( 'finish', remove_progress );
+        dataset.on( 'timestep', set_timestep );
 
         return _view;
 
@@ -60,11 +64,15 @@ function plotting_tools_view ( dataset ) {
                     .attr( 'class', 'plotting_tools item' );
 
                 // Picking tools
-                var _picker_container = _tools.append( 'div' ).attr( 'class', 'two-col' );
+                var _picker_container = _tools.append( 'div' ).attr( 'class', 'two-col clickable' );
 
                 _picker_container.append( 'div' ).attr( 'class', 'left' ).text( _plot_node_text );
-                _picker_container.append( 'div' ).attr( 'class', 'right clickable' )
+                _picker_container.append( 'div' ).attr( 'class', 'right' )
                     .append( 'i' ).attr( 'class', 'fa fa-mouse-pointer' );
+
+                _picker_container.on( 'click', toggle_button );
+
+                _picking_loaded = true;
 
             }
 
@@ -74,13 +82,17 @@ function plotting_tools_view ( dataset ) {
 
     _view.on_click = function ( event ) {
 
-        var click_coordinates = event.coordinates;
-        var node = dataset.find_node( click_coordinates );
-        _node_coordinates = node.coordinates;
-        _offset_y = event.offset_y;
-        update_circle();
+        if ( _picking_loaded && _picking ) {
 
-        dataset.timeseries( node.node_number, plot_timeseries );
+            var click_coordinates = event.coordinates;
+            var node = dataset.find_node(click_coordinates);
+            _node_coordinates = node.coordinates;
+            _offset_y = event.offset_y;
+            update_circle();
+
+            dataset.timeseries(node.node_number, plot_timeseries);
+
+        }
 
     };
 
@@ -95,7 +107,7 @@ function plotting_tools_view ( dataset ) {
 
     function update_circle () {
 
-        if ( _transform && _node_coordinates && _circle ) {
+        if ( _picking && _transform && _node_coordinates && _circle ) {
 
             var added = [ _node_coordinates[ 0 ], _offset_y - _node_coordinates[ 1 ] ];
             var transformed = _transform.apply( added );
@@ -111,12 +123,38 @@ function plotting_tools_view ( dataset ) {
     function hide_plot () {
 
         if ( _plotting_area ) _plotting_area.style( 'display', 'none' );
+        if ( _circle ) _circle.attr( 'visibility', 'hidden' );
 
     }
 
     function show_plot () {
 
         if ( _plotting_area ) _plotting_area.style( 'display', null );
+
+    }
+
+    function set_timestep ( event ) {
+
+        if ( _chart && _plotting_area ) {
+
+            var x_scale = _chart.x_scale();
+
+            var selection = _plotting_area
+                .select( 'svg' ).select( 'g' ).selectAll( '.tsline' ).data( [ {} ] );
+
+            selection = selection.enter()
+                .append( 'line' )
+                .attr( 'class', 'tsline' )
+                .merge( selection );
+
+            selection.attr( 'x1', x_scale( event.index ) )
+                .attr( 'x2', x_scale( event.index ) )
+                .attr( 'y1', 0 )
+                .attr( 'y2', 180 )
+                .attr( 'stroke', '#666666' )
+                .attr( 'stroke-width', '1px' );
+
+        }
 
     }
 
@@ -166,17 +204,43 @@ function plotting_tools_view ( dataset ) {
         function show_value ( d ) {
 
             var index = d[0];
-            var value = d[1] === -99999 ? 'Dry' : d[1].toLocaleString();
-            _legend.item( 'Dataset ' + index + ': ' + value, _line );
+            _legend.item( 'Node ' + node_number + ', Dataset ' + index, _line );
 
             if ( d[1] !== -99999 ) {
 
-                d3.select( this )
+                var circle = d3.select( this )
                     .attr( 'r', 5 )
                     .attr( 'stroke', _line.attr( 'stroke' ) )
                     .attr( 'stroke-width', _line.attr( 'stroke-width' ) )
                     .attr( 'fill', 'white' )
-                    .attr( 'fill-opacity', 0.5 );
+                    .attr( 'fill-opacity', 0.5 )
+                    .attr( 'visibility', null );
+
+                var label = d3.select( this.parentNode )
+                    .selectAll( '.dataval' ).data( [ d ] );
+
+                label = label
+                    .enter().append( 'text' )
+                    .attr( 'class', 'dataval' )
+                    .merge( label );
+
+                label.attr( 'x', ( +circle.attr( 'cx' ) + 15 ) )
+                    .attr( 'y', circle.attr( 'cy' ) )
+                    .style( 'font-family', 'sans-serif' )
+                    .style( 'font-size', '14px' )
+                    .style( 'font-weight', 'bold' )
+                    .style( 'alignment-baseline', 'middle' )
+                    .attr( 'visibility', null )
+                    .text( d[1].toLocaleString() + 'm' );
+            } else {
+
+                d3.select( this )
+                    .attr( 'visibility', 'hidden' );
+
+                d3.select( this.parentNode )
+                    .selectAll( '.dataval' )
+                    .attr( 'visibility', 'hidden' )
+
             }
 
             _plotting_area.call( _chart );
@@ -187,6 +251,10 @@ function plotting_tools_view ( dataset ) {
 
             _legend.item( 'Elevation Timeseries for Node ' + node_number, _line );
             _plotting_area.call( _chart );
+
+            d3.select( this.parentNode )
+                .selectAll( '.dataval' )
+                .attr( 'visibility', 'hidden' );
 
         }
 
@@ -232,6 +300,33 @@ function plotting_tools_view ( dataset ) {
         hide_plot();
 
     }
+
+    function toggle_button () {
+
+        if ( _picking_loaded ) {
+
+            var button = d3.select( this );
+
+            if ( !_picking ) {
+
+                button.style( 'background-color', '#666666' )
+                    .style( 'color', 'white' );
+                _picking = true;
+
+            } else {
+
+                button.style( 'background-color', null )
+                    .style( 'color', null );
+                _picking = false;
+
+                hide_plot();
+
+            }
+
+        }
+
+    }
+
 
 }
 
